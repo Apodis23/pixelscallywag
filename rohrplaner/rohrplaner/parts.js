@@ -151,11 +151,12 @@
       add({ ...base, id: `${pre}-t-${k}`, shape: 'fit', de: `T-Stück IG ${z}`, en: `Tee female ${z}`, desc: { de: `${D}. T-Stück, ${z} IG`, en: `Tee female ${z}` }, ports: [L(-0.5, 0, -1, 0, ig(s)), L(0.5, 0, 1, 0, ig(s)), L(0, -0.5, 0, -1, ig(s))] });
       add({ ...base, id: `${pre}-m-${k}`, shape: 'fit', de: `Muffe IG ${z}`, en: `Socket female ${z}`, desc: { de: `${D}. Muffe, ${z} IG/IG`, en: `Socket ${z}` }, ports: [L(-0.5, 0, -1, 0, ig(s)), L(0.5, 0, 1, 0, ig(s))] });
       add({ ...base, id: `${pre}-dn-${k}`, shape: 'fit', hex: true, de: `Doppelnippel ${z}`, en: `Hex nipple ${z}`, desc: { de: `${D}. Doppelnippel, ${z} AG/AG`, en: `Hex nipple ${z} M/M` }, ports: [L(-0.5, 0, -1, 0, ag(s)), L(0.5, 0, 1, 0, ag(s))] });
+      [60, 100, 150].forEach((len) => add({ ...base, id: `${pre}-ln-${k}-${len}`, shape: 'fit', de: `Langnippel ${z} AG/AG ${len} mm`, en: `Long nipple ${z} M/M ${len} mm`, desc: { de: `${D}. Langnippel (Rohrdoppelnippel), ${z} AG/AG, Länge ${len} mm`, en: `Long barrel nipple ${z} M/M, length ${len} mm` }, ports: [L(-0.5, 0, -1, 0, ag(s)), L(0.5, 0, 1, 0, ag(s))] }));
       add({ ...base, id: `${pre}-st-${k}`, shape: 'plug', de: `Stopfen ${z} AG`, en: `Plug ${z} male`, desc: { de: `${D}. Stopfen mit Vierkant, ${z} AG`, en: `Plug ${z}` }, ports: [L(-0.5, 0, -1, 0, ag(s))] });
       add({ ...base, id: `${pre}-vs-${k}`, shape: 'union', de: `Verschraubung ${z} IG/AG flachdichtend`, en: `Union ${z} F/M flat seal`, desc: { de: `${D}. Verschraubung (lösbare Rohrverbindung) flachdichtend mit Dichtung, ${z} IG × AG`, en: `Union ${z} female × male, flat seal with gasket` }, ports: [L(-0.5, 0, -1, 0, ig(s)), L(0.5, 0, 1, 0, ag(s))] });
       add({ ...base, id: `${pre}-ka-${k}`, shape: 'cap', de: `Kappe ${z} IG`, en: `Cap ${z} female`, desc: { de: `${D}. Kappe, ${z} IG`, en: `Cap ${z}` }, ports: [L(-0.5, 0, -1, 0, ig(s))] });
     });
-    [['3/4', '1/2'], ['1', '3/4']].forEach(([a, b]) => {
+    [['3/4', '1/2'], ['1', '3/4'], ['1', '1/2']].forEach(([a, b]) => {
       const ka = a.replace('/', ''), kb = b.replace('/', '');
       add({ ...base, id: `${pre}-rn-${ka}-${kb}`, shape: 'fit', hex: true, de: `Reduziernippel ${ZOLL[a]} AG × ${ZOLL[b]} AG`, en: `Reducing nipple ${ZOLL[a]} × ${ZOLL[b]} M/M`, desc: { de: `${D}. Reduziernippel ${ZOLL[a]} × ${ZOLL[b]} AG/AG`, en: `Reducing hex nipple` }, ports: [L(-0.5, 0, -1, 0, ag(a)), L(0.5, 0, 1, 0, ag(b))] });
       add({ ...base, id: `${pre}-rm-${ka}-${kb}`, shape: 'fit', de: `Reduziermuffe ${ZOLL[a]} IG × ${ZOLL[b]} IG`, en: `Reducing socket ${ZOLL[a]} × ${ZOLL[b]} F/F`, desc: { de: `${D}. Reduziermuffe ${ZOLL[a]} × ${ZOLL[b]} IG/IG`, en: `Reducing socket` }, ports: [L(-0.5, 0, -1, 0, ig(a)), L(0.5, 0, 1, 0, ig(b))] });

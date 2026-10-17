@@ -1,5 +1,5 @@
 /* Rohrplaner – Service Worker: alles offline verfügbar */
-const CACHE = 'rohrplaner-v4';
+const CACHE = 'rohrplaner-v5';
 const FILES = ['./', 'index.html', 'styles.css', 'parts.js', 'i18n.js', 'info.js', 'legal.js', 'examples.js', 'ai-stub.js', 'app.js',
   'manifest.webmanifest', 'icons/icon.svg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
