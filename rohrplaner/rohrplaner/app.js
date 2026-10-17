@@ -806,7 +806,7 @@ function chosenSize(c, info) {
   if (v === 'all' || info.chips.includes(v)) return v;
   const g = libSizePref._last; // zuletzt gewählte Größe in anderer Kategorie → gleiche Nennweite
   if (g && g !== 'all') { const m = info.chips.find((ch) => ch === g) || info.chips.find((ch) => SIZE_DN[ch] === SIZE_DN[g]); if (m) return m; }
-  return 'all';
+  return info.chips[0] || 'all'; // Standard: kleinste Größe statt alle gemischt
 }
 function buildLibrary() {
   const q = $('libSearch').value.trim().toLowerCase();
