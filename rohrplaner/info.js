@@ -11,7 +11,7 @@ de: `<ol style="padding-left:20px;line-height:1.55;margin-top:0">
 <p><b>Tastatur:</b> R drehen · F spiegeln · Entf löschen · Strg+D kopieren · Strg+Z / Strg+Y · Esc abbrechen · Mausrad zoomen · leere Fläche ziehen = verschieben.</p>
 <p><b>Farben:</b> weiß/grau = Alu-Verbund · kupfer = Kupfer · grau = Stahl/Temperguss verzinkt · gelb = Messing · silbern geflochten = Panzerschlauch.</p>
 <p>Maßstab: 1 Kästchen = 10 cm. Fittinge sind Symbole und nicht maßstäblich.</p>
-<div class="disclaimer">{disc}</div><p style="color:#8a94a3;font-size:12px;margin-top:14px">Rohrplaner Prototyp v0.1 · ein kostenloses Werkzeug von Pixel Scallywag · funktioniert offline</p>`,
+<div class="disclaimer">{disc}</div>{legal}<p style="color:#8a94a3;font-size:12px;margin-top:14px">Rohrplaner Prototyp v0.1 · ein kostenloses Werkzeug von Pixel Scallywag · funktioniert offline</p>`,
 en: `<ol style="padding-left:20px;line-height:1.55;margin-top:0">
 <li><b>Choose medium</b> (top): drinking water cold, hot + cold or heating.</li>
 <li><b>Add a part:</b> tap it in the library – if a part is selected, the new part is <b>attached to its free port automatically</b>. Or drag it onto the grid (phone: long press).</li>
@@ -22,5 +22,5 @@ en: `<ol style="padding-left:20px;line-height:1.55;margin-top:0">
 <li><b>Parts list</b> shows quantities and pipe lengths – CSV or print/PDF.</li></ol>
 <p><b>Keys:</b> R rotate · F mirror · Del delete · Ctrl+D copy · Ctrl+Z / Ctrl+Y · Esc · wheel zoom · drag empty area = pan.</p>
 <p>Scale: 1 square = 10 cm. Fittings are symbols, not to scale.</p>
-<div class="disclaimer">{disc}</div><p style="color:#8a94a3;font-size:12px;margin-top:14px">Rohrplaner prototype v0.1 · a free tool by Pixel Scallywag · works offline</p>`,
+<div class="disclaimer">{disc}</div>{legal}<p style="color:#8a94a3;font-size:12px;margin-top:14px">Rohrplaner prototype v0.1 · a free tool by Pixel Scallywag · works offline</p>`,
 };

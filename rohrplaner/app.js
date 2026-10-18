@@ -11,6 +11,7 @@ const MAT = {
   st: { fill: '#aeb6bf', hl: '#e2e6ea' }, ms: { fill: '#e6c14a', hl: '#fbeaa6' },
   mvp: { fill: '#e6c14a', hl: '#fbeaa6' }, cup: { fill: '#c9743c', hl: '#eeaa78' },
   tg: { fill: '#b8c0c8', hl: '#e6e9ed' }, vc: { fill: '#dfe4ea', hl: '#ffffff' }, es: { fill: '#d5dae0', hl: '#f4f6f8' },
+  wh: { fill: '#f6f7f9', hl: '#ffffff' }, rd: { fill: '#d6402f', hl: '#f08a80' },
 };
 
 /* ------------------------------------------------------------------ i18n */
@@ -25,11 +26,11 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const tf = (x, y, rot, flip) => { if (flip) y = -y; for (let i = 0; i < rot; i++) [x, y] = [-y, x]; return [x + 0, y + 0]; };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const snap5 = (v) => Math.round(v * 2) / 2;
-const sysName = (s) => (s.startsWith('MV') ? 'MV ' + s.slice(2) : s.startsWith('CU') ? 'CU ' + s.slice(2) : s);
+const sysName = (s) => (/^(MV|CU|ES)/.test(s) ? s.slice(0, 2) + ' ' + s.slice(2) : s);
 const zoll = (s) => ZOLL[s] || s;
 function fmtPort(tp) {
   if (tp.k === 'pipe') return (lang === 'de' ? 'Rohr ' : 'pipe ') + sysName(tp.s);
-  if (tp.k === 'sock') return sysName(tp.s) + ' ' + (tp.tech === 'Press' ? 'Press' : (lang === 'de' ? 'Schraub' : 'compr.'));
+  if (tp.k === 'sock') return sysName(tp.s) + ' ' + ({ Press: 'Press', Schraub: lang === 'de' ? 'Schraub' : 'compr.', Klemm: lang === 'de' ? 'Klemm' : 'compr.', 'Löt': lang === 'de' ? 'Löt' : 'solder', Steck: lang === 'de' ? 'Steck' : 'push-fit' }[tp.tech] || tp.tech);
   return zoll(tp.s) + ' ' + (tp.k === 'ig' ? (lang === 'de' ? 'IG' : 'F') : (lang === 'de' ? 'AG' : 'M'));
 }
 function portsOf(o) {
@@ -82,7 +83,7 @@ function analyze(items, excludeId) {
 }
 
 /* ------------------------------------------------------------------ Piktogramme */
-const BW = { MV16: 10, MV20: 12, MV26: 15, CU15: 9, CU18: 11, CU22: 13, '3/8': 8, '1/2': 12, '3/4': 15, '1': 18 };
+const BW = { MV16: 10, MV20: 12, MV26: 15, MV32: 18, CU15: 9, CU18: 11, CU22: 13, CU28: 16, ES15: 9, ES18: 11, ES22: 13, ES28: 16, '3/8': 8, '1/2': 12, '3/4': 15, '1': 18 };
 const bw = (s) => BW[s] || 12;
 const f1 = (n) => +n.toFixed(2);
 const rect = (x, y, w, h, fill, rx = 2, extra = '') => `<rect x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" rx="${rx}" fill="${fill}" stroke="${OUT}" stroke-width="2" ${extra}/>`;
@@ -102,6 +103,9 @@ function tubes(segs, M, hubR) {
 function deco(tp, matKey) {
   const w = bw(tp.s), M = MAT[matKey] || MAT.ms;
   if (tp.k === 'sock') {
+    if (tp.tech === 'Löt') return rect(-8, -(w / 2 + 2.5), 8, w + 5, M.fill, 1.5);
+    if (tp.tech === 'Steck') return rect(-12, -(w / 2 + 5), 12, w + 10, MAT.ms.fill, 2) + rect(-5, -(w / 2 + 6), 5, w + 12, '#3b4652', 1.5);
+    if (tp.tech === 'Press' && matKey === 'es') return rect(-10, -(w / 2 + 3), 10, w + 6, M.fill) + ln(-5, -(w / 2 + 3), -5, w / 2 + 3, '#6b7480', 2.2);
     if (tp.tech === 'Press' && matKey === 'cup') return rect(-10, -(w / 2 + 3), 10, w + 6, M.fill) + ln(-5, -(w / 2 + 3), -5, w / 2 + 3, '#7b3f17', 2.2);
     if (tp.tech === 'Press') return rect(-11, -(w / 2 + 5), 11, w + 10, '#cdd3da') + rect(-7.5, -2.5, 3.5, 5, '#5b6675', 1, 'stroke-width="0"');
     return rect(-13, -(w / 2 + 6), 13, w + 12, MAT.ms.fill, 3) + ln(-9, -(w / 2 + 5), -9, w / 2 + 5, OUT, 1, 'opacity=".45"') + ln(-4, -(w / 2 + 5), -4, w / 2 + 5, OUT, 1, 'opacity=".45"');
@@ -137,7 +141,8 @@ function drawPart(def) {
       const w = bw(ps[0].t.s);
       s += tubes([[-40, 0, 40, 0, w + 2]], M) + decos() + rect(-17, -(w / 2 + 8), 34, w + 16, M.fill, 8)
         + `<circle r="${w / 2 + 1}" fill="none" stroke="${OUT}" stroke-width="1.2" opacity=".45"/>`
-        + rect(-3, -(w / 2 + 15), 6, 8, '#9aa3ad', 1) + rect(-9, -(w / 2 + 23), 42, 9, '#d33a2c', 4.5); break;
+        + rect(-3, -(w / 2 + 15), 6, 8, '#9aa3ad', 1) + rect(-9, -(w / 2 + 23), 42, 9, '#d33a2c', 4.5)
+        + (def.rv ? `<path d="M-30 ${w / 2 + 12}H-18M-22 ${w / 2 + 8}L-17 ${w / 2 + 12}L-22 ${w / 2 + 16}" fill="none" stroke="${OUT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` + rect(20, -(w / 2 + 5), 9, w + 10, M.fill, 4) : ''); break;
     }
     case 'check': {
       const w = bw(ps[0].t.s);
@@ -168,14 +173,142 @@ function drawPart(def) {
       s += rect(12, -22, 14, 20, M.fill, 4) + rect(10, -35, 18, 13, '#2f6fd1', 3); break;
     }
     case 'sv': s += tubes(arms(), M, 16) + decos() + `<circle cy="-1" r="12" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/>` + rect(-9, -27, 18, 15, '#d33a2c', 4); break;
+    case 'union': {
+      const w = bw(ps[0].t.s);
+      s += tubes(arms(), M) + decos() + rect(-15, -(w / 2 + 7), 13, w + 14, M.fill, 2) + ln(-8.5, -(w / 2 + 6), -8.5, w / 2 + 6, OUT, 1, 'opacity=".45"')
+        + rect(-2, -(w / 2 + 4), 12, w + 8, M.fill, 2) + ln(-2, -(w / 2 + 9), -2, w / 2 + 9, OUT, 1.6); break;
+    }
+    case 'ssv': case 'srv': {
+      const w = bw(ps[0].t.s), L = Math.abs(ps[0].x * C), b = sh === 'ssv' ? 30 : 22;
+      s += tubes([[-L, 0, L, 0, w + 2]], M) + decos();
+      s += ln(0, 0, -b, -b, OUT, w + 6, 'stroke-linecap="round"') + ln(0, 0, -b, -b, M.fill, w + 2, 'stroke-linecap="round"');
+      s += `<ellipse rx="${sh === 'ssv' ? 20 : 15}" ry="${w / 2 + 8}" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/>`;
+      s += `<path d="M-8 2H6M1-2.5L6 2L1 6.5" fill="none" stroke="${OUT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      if (sh === 'ssv') {
+        s += `<g transform="translate(${-b},${-b}) rotate(-45)">` + rect(-7, -6, 8, 12, M.fill, 2) + '</g>' + ln(-b - 3, -b - 3, -b - 12, -b - 12, '#8c939b', 3.5);
+        s += `<g transform="translate(${-b - 14},${-b - 14}) rotate(45)"><rect x="-4" y="-15" width="8" height="30" rx="3.5" fill="#2e8b3e" stroke="${OUT}" stroke-width="2"/><path d="M0-11V11" stroke="#bfe3c4" stroke-width="1.2"/></g>`;
+      } else {
+        s += `<g transform="translate(${-b - 2},${-b - 2}) rotate(-45)">` + rect(-6, -7, 9, 14, M.fill, 2) + ln(-3, -7, -3, 7, OUT, 1, 'opacity=".4"') + '</g>';
+      }
+      break;
+    }
+    case 'tap': {
+      const w = bw(ps[0].t.s);
+      s += tubes([[0, -20, 0, -4, w]], M) + decos();
+      s += `<path d="M-3 6V20Q-3 27 -10 27" fill="none" stroke="${OUT}" stroke-width="11" stroke-linecap="round"/><path d="M-3 6V20Q-3 27 -10 27" fill="none" stroke="${M.fill}" stroke-width="7" stroke-linecap="round"/>`;
+      s += `<circle r="11" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/>` + rect(9, -3.5, 10, 7, M.fill, 2) + rect(17, -11, 5, 22, '#dfe4ea', 2) + `<circle cx="-10" cy="27" r="3" fill="${OUT}"/>`;
+      break;
+    }
+    case 'gauge': {
+      s += tubes([[0, 20, 0, 4, bw('1/2')]], M) + decos() + rect(-7, 4, 14, 8, M.fill, 2);
+      s += `<circle cy="-10" r="16" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/><circle cy="-10" r="12" fill="#fff" stroke="${OUT}" stroke-width="1"/>`
+        + (def.therm ? ln(0, -10, -7, -16, '#1f6feb', 2, 'stroke-linecap="round"') + '<text x="0" y="-1" text-anchor="middle" style="font:700 6px sans-serif" fill="#d33a2c">°C</text>' : ln(0, -10, 7, -17, '#d33a2c', 2, 'stroke-linecap="round"')) + `<path d="M-8-16A10 10 0 0 1 8-16" fill="none" stroke="${OUT}" stroke-width="1" opacity=".5"/><circle cy="-10" r="1.8" fill="${OUT}"/>`;
+      break;
+    }
+    case 'svtw': {
+      s += tubes(arms(), M, 14) + decos() + rect(-10, -12, 20, 22, M.fill, 5) + ln(-10, -4, 10, -4, OUT, 1, 'opacity=".4"')
+        + rect(-6, -18, 12, 7, '#c9a43a', 1) + rect(-9, -30, 18, 13, '#2e8b3e', 4); break;
+    }
+    case 'vessel': {
+      s += tubes([[0, 20, 0, -8, bw('3/4')]], MAT.wh) + decos();
+      s += `<path d="M-80-60V-118H80V-60A80 52 0 0 1 -80-60Z" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/>`
+        + `<ellipse cx="28" cy="-52" rx="9" ry="5" fill="#fff" opacity=".9"/><path d="M-70-62A70 44 0 0 0 -20-16" fill="none" stroke="#dde1e6" stroke-width="5"/>`;
+      break;
+    }
     case 'hose': {
       const L = Math.abs(ps[0].x * C), w = bw(ps[0].t.s) - 1;
       s += ln(-L, 0, L, 0, OUT, w + 4) + ln(-L, 0, L, 0, 'url(#braid)', w) + decos(); break;
     }
     case 'pipe': s += pipeSVG(def, [-1, 0], [1, 0]); break;
+    case 'arm': s += armSVG(def, M, ps, decos, arms); break;
   }
   return s;
 }
+/* Generische Armaturen-Piktogramme (sym aus parts.js) */
+const ARROW = (y) => `<path d="M-8 ${y}H6M1 ${y - 4.5}L6 ${y}L1 ${y + 4.5}" fill="none" stroke="${OUT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+const circ = (cx, cy, r, fill, extra = '') => `<circle cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r)}" fill="${fill}" stroke="${OUT}" stroke-width="2" ${extra}/>`;
+const miniGauge = (cx, cy, r = 9) => ln(cx, cy + r, cx, cy + r + 6, OUT, 4) + circ(cx, cy, r, '#fff') + ln(cx, cy, cx + r * 0.55, cy - r * 0.55, '#d33a2c', 1.8, 'stroke-linecap="round"');
+function armSVG(def, M, ps, decos, arms) {
+  const w = Math.max(...ps.map((p) => bw(p.t.s))) + 2, h = w / 2;
+  const straight = ps.length === 2 && ps.every((p) => Math.abs(p.d[1]) < 0.01);
+  const xL = straight ? Math.abs(ps[0].x * C) : 0;
+  let s = straight ? tubes([[-xL, 0, xL, 0, w]], M) : tubes(arms(), M, ps.length > 1 ? w + 4 : 0);
+  s += decos();
+  const body = (bwid, fill = M.fill, rx = 6) => rect(-bwid / 2, -(h + 7), bwid, w + 14, fill, rx);
+  switch (def.sym) {
+    case 'dm':
+      s += body(30) + rect(-12, -(h + 30), 24, 25, M.fill, 8) + rect(-4, -(h + 37), 8, 8, '#2f6fd1', 2) + ARROW(h + 15);
+      if (def.gauge) s += miniGauge(24, -(h + 20)); break;
+    case 'ffil': case 'rsf':
+      s += body(30) + `<rect x="-11" y="${h + 6}" width="22" height="30" rx="8" fill="#d6ecf8" stroke="${OUT}" stroke-width="2"/><rect x="-5" y="${h + 10}" width="10" height="22" rx="3" fill="#ece3c4" stroke="${OUT}" stroke-width="1"/>`;
+      if (def.sym === 'rsf') s += rect(-5, h + 36, 10, 7, '#d33a2c', 2) + rect(-9, -(h + 18), 18, 11, '#2f6fd1', 3); break;
+    case 'hws':
+      s += body(34) + `<rect x="-11" y="${h + 6}" width="22" height="30" rx="8" fill="#d6ecf8" stroke="${OUT}" stroke-width="2"/><rect x="-5" y="${h + 10}" width="10" height="22" rx="3" fill="#ece3c4" stroke="${OUT}" stroke-width="1"/>`
+        + rect(-12, -(h + 30), 24, 25, M.fill, 8) + rect(-4, -(h + 37), 8, 8, '#2f6fd1', 2) + miniGauge(25, -(h + 20)) + rect(-5, h + 36, 10, 7, '#d33a2c', 2); break;
+    case 'leak':
+      s += body(30) + rect(-15, -(h + 34), 30, 26, '#2f6fd1', 5) + `<path d="M0 ${-(h + 29)}C-6 ${-(h + 20)} -6 ${-(h + 14)} 0 ${-(h + 13)}C6 ${-(h + 14)} 6 ${-(h + 20)} 0 ${-(h + 29)}Z" fill="#fff"/>`; break;
+    case 'ba':
+      s += rect(-26, -(h + 7), 52, w + 14, '#3e78c9', 7) + [-14, 0, 14].map((x) => circ(x, -(h + 11), 4, '#e6c14a')).join('')
+        + `<path d="M-9 ${h + 9}H9L4 ${h + 22}H-4Z" fill="#c4cad1" stroke="${OUT}" stroke-width="2"/>` + ARROW(0); break;
+    case 'rb':
+      s += body(24) + rect(-9, -(h + 22), 18, 16, '#2f6fd1', 5) + ln(-6, -(h + 14), 6, -(h + 14), '#fff', 1.4); break;
+    case 'tmix':
+      s += circ(0, 0, h + 8, M.fill) + rect(-4, -(h + 16), 8, 9, '#9aa3ad', 1) + circ(0, -(h + 24), 10, '#fff')
+        + `<path d="M0 ${-(h + 34)}A10 10 0 0 1 0 ${-(h + 14)}Z" fill="#d6402f"/><path d="M0 ${-(h + 34)}A10 10 0 0 0 0 ${-(h + 14)}Z" fill="#2f6fd1"/>` + circ(0, -(h + 24), 4, '#fff'); break;
+    case 'wz':
+      s += body(30) + circ(0, -(h + 16), 15, '#fff', 'stroke-width="2.5"') + circ(0, -(h + 16), 11, '#e8f1fd', 'stroke-width="1"')
+        + `<text x="0" y="${-(h + 13)}" text-anchor="middle" style="font:700 8px sans-serif" fill="#1f4fa8">m³</text>` + ARROW(h + 14); break;
+    case 'wzb':
+      s += rect(-20, -(h + 10), 40, w + 20, 'none', 4, 'stroke-dasharray="4 3" opacity=".6"') + rect(-46, -(h + 5), 18, w + 10, M.fill, 4) + rect(28, -(h + 5), 18, w + 10, M.fill, 4)
+        + rect(-41, -(h + 14), 8, 9, '#2f6fd1', 2) + rect(33, -(h + 14), 8, 9, '#2f6fd1', 2) + rect(-50, h + 8, 100, 6, '#9aa3ad', 2); break;
+    case 'wsd':
+      s = tubes([[0, 20, 0, -4, bw('1/2')]], M) + decos() + rect(-11, -34, 22, 32, M.fill, 6) + ln(-11, -24, 11, -24, OUT, 1, 'opacity=".4"'); break;
+    case 'fj':
+      s += body(30) + rect(-12, -(h + 12), 24, 7, '#2e8b3e', 3) + ARROW(0); break;
+    case 'vt': {
+      const xs = ps.map((p) => p.x * C), x0 = Math.min(...xs), x1 = Math.max(...xs);
+      s = tubes([[x0, 0, x1, 0, 22]], M) + ps.slice(2).map((p) => tubes([[p.x * C, 0, p.x * C, p.y * C, bw(p.t.s)]], M)).join('') + decos()
+        + ps.slice(2).map((p) => rect(p.x * C - 5, -18, 10, 7, '#2f6fd1', 2)).join(''); break;
+    }
+    case 'pump':
+      s += circ(0, 0, 20, M.fill) + rect(-13, -50, 26, 30, '#3b4652', 5) + rect(-8, -45, 16, 9, '#7fd18b', 2, 'stroke-width="1"') + ARROW(0); break;
+    case 'mix3':
+      s += circ(0, 0, h + 9, M.fill) + circ(0, -(h + 20), 11, '#3b4652') + ln(0, -(h + 20), 0, -(h + 29), '#fff', 2.4, 'stroke-linecap="round"')
+        + `<path d="M-15 ${-(h + 28)}A17 17 0 0 1 15 ${-(h + 28)}" fill="none" stroke="${OUT}" stroke-width="1" stroke-dasharray="2 3"/>`; break;
+    case 'sla':
+      s += body(30) + rect(-12, h + 5, 24, 34, '#4a5360', 6) + rect(-12, h + 25, 24, 6, '#9aa3ad', 1) + rect(-4, -(h + 16), 8, 9, '#d33a2c', 2); break;
+    case 'kv':
+      s += body(28) + rect(-7, -(h + 20), 14, 13, '#d33a2c', 3) + ln(-7, -(h + 14), 7, -(h + 14), '#fff', 1.2); break;
+    case 'dfb':
+      s += body(24) + `<rect x="-7" y="${-(h + 42)}" width="14" height="36" rx="5" fill="#d6ecf8" stroke="${OUT}" stroke-width="2"/>` + rect(-5, -(h + 28), 10, 5, '#d33a2c', 1, 'stroke-width="1"') + rect(-9, -(h + 48), 18, 7, M.fill, 2); break;
+    case 'strv':
+      s += `<ellipse rx="17" ry="${h + 8}" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/>` + rect(-3, -(h + 18), 6, 11, '#9aa3ad', 1) + rect(-14, -(h + 28), 28, 11, '#2f6fd1', 5)
+        + circ(-9, h + 10, 3.5, '#d33a2c') + circ(9, h + 10, 3.5, '#2f6fd1') + ARROW(0); break;
+    case 'sf':
+      s += ln(0, 0, 16, 20, OUT, w + 6, 'stroke-linecap="round"') + ln(0, 0, 16, 20, M.fill, w + 2, 'stroke-linecap="round"') + `<ellipse rx="15" ry="${h + 6}" fill="${M.fill}" stroke="${OUT}" stroke-width="2"/>`
+        + `<g transform="translate(18,23) rotate(-38)">${rect(-7, -5, 14, 10, M.fill, 2)}</g>` + ARROW(0); break;
+    case 'usv':
+      s += body(24) + rect(-7, -(h + 30), 14, 24, '#9aa3ad', 3) + `<path d="M-5 ${-(h + 26)}L5 ${-(h + 22)}L-5 ${-(h + 18)}L5 ${-(h + 14)}" fill="none" stroke="${OUT}" stroke-width="1.2"/>` + rect(-9, -(h + 36), 18, 7, '#d33a2c', 3) + ARROW(0); break;
+    case 'tv': case 'rlv':
+      s += circ(0, 0, h + 7, M.fill);
+      s += def.sym === 'tv' ? rect(-3, -(h + 13), 6, 7, '#9aa3ad', 1) + rect(-12, -(h + 46), 24, 34, '#fbfbfc', 10) + [-6, 0, 6].map((x) => ln(x, -(h + 42), x, -(h + 16), '#c9d0d8', 1.5)).join('')
+        : rect(-6, -(h + 16), 12, 10, M.fill, 2) + rect(-4, -(h + 20), 8, 5, '#9aa3ad', 1); break;
+    case 'hblk':
+      s = ps.map((p) => tubes([[p.x * C, 0, p.x * C, p.y * C, bw(p.t.s)]], M)).join('') + decos() + rect(-22, -10, 44, 20, M.fill, 5) + rect(-28, -6, 7, 12, '#9aa3ad', 2) + rect(21, -6, 7, 12, '#9aa3ad', 2); break;
+    case 'sent':
+      s = tubes([[0, 20, 0, -2, w]], M) + decos() + rect(-11, -36, 22, 34, M.fill, 5) + ln(-11, -26, 11, -26, OUT, 1, 'opacity=".4"') + rect(-4, -44, 8, 8, '#d33a2c', 2); break;
+    case 'ment':
+      s = tubes([[0, 20, 0, -2, w]], M) + decos() + rect(-9, -14, 18, 12, M.fill, 2) + rect(-4, -22, 8, 8, '#9aa3ad', 1) + ln(-6, -10, 6, -10, OUT, 1, 'opacity=".4"'); break;
+    case 'ksg':
+      s = tubes([[0, 20, 0, -12, w], [-30, -12, 30, -12, 14]], M) + decos() + rect(-38, -26, 16, 22, M.fill, 4) + rect(-38, -36, 16, 11, '#d33a2c', 3)
+        + rect(-8, -46, 16, 30, M.fill, 4) + rect(-4, -52, 8, 7, '#d33a2c', 2) + miniGauge(30, -34, 10); break;
+  }
+  return s;
+}
+const ARM_BB = { dm: [0, -48, 14, 4], ffil: [0, -6, 0, 30], rsf: [0, -10, 0, 38], hws: [0, -48, 16, 38], leak: [0, -46, 0, 0], ba: [-6, -14, 6, 16], rb: [0, -30, 0, 0],
+  tmix: [-4, -50, 4, 0], wz: [0, -42, 0, 8], wzb: [-6, -10, 6, 10], wsd: [0, -28, 0, 0], fj: [0, -4, 0, 4], vt: [0, -14, 0, 0], pump: [0, -46, 0, 8], mix3: [-4, -46, 4, 0],
+  sla: [0, -14, 0, 36], kv: [0, -24, 0, 0], dfb: [0, -54, 0, 0], strv: [0, -34, 0, 10], sf: [0, -4, 14, 22], usv: [0, -42, 0, 0], tv: [0, -54, 0, 0], rlv: [0, -24, 0, 0],
+  hblk: [-12, 0, 12, 0], sent: [0, -40, 0, 0], ment: [0, -16, 0, 0], ksg: [-24, -46, 22, 0] };
 function pipeSVG(def, a, b) {
   const M = MAT[def.mat], w = bw(def.ports[0].t.s);
   const ax = a[0] * C, ay = a[1] * C, bx = b[0] * C, by = b[1] * C;
@@ -193,7 +326,10 @@ function bboxOf(def) {
   let x0 = -16, y0 = -16, x1 = 16, y1 = 16;
   if (def.shape === 'pipe') { x0 = -44; x1 = 44; }
   def.ports.forEach((p) => { x0 = Math.min(x0, p.x * C - 8); x1 = Math.max(x1, p.x * C + 8); y0 = Math.min(y0, p.y * C - 8); y1 = Math.max(y1, p.y * C + 8); });
-  const ex = { valve: [0, -32, 0, 0], kfe: [0, -24, 10, 0], wmv: [0, -34, 0, 0], eckv: [0, -38, 0, 0], sg: [0, -4, 4, 6], sv: [0, -16, 0, 0], check: [0, -4, 0, 4] }[def.shape];
+  const ex = { valve: [0, -32, 0, 4], kfe: [0, -24, 10, 0], wmv: [0, -34, 0, 0], eckv: [0, -38, 0, 0], sg: [0, -4, 4, 6], sv: [0, -16, 0, 0], check: [0, -4, 0, 4],
+    union: [0, -2, 0, 2], ssv: [-6, -46, 0, 0], srv: [0, -26, 0, 0], tap: [0, 0, 10, 16], gauge: [0, -10, 0, 0], svtw: [0, -14, 0, 0], vessel: [-66, -104, 66, 0] }[def.shape];
+  const ax = def.shape === 'arm' ? ARM_BB[def.sym] : null;
+  if (ax) { x0 += ax[0]; y0 += ax[1]; x1 += ax[2]; y1 += ax[3]; }
   if (ex) { x0 += ex[0]; y0 += ex[1]; x1 += ex[2]; y1 += ex[3]; }
   return (BBOX[def.id] = [x0, y0, x1, y1]);
 }
@@ -390,7 +526,7 @@ function orientCandidates(def, tp) {
   return out;
 }
 function occupied(items, x, y) { return items.some((o) => o.type !== 'pipe' && Math.abs(o.x - x) < 0.3 && Math.abs(o.y - y) < 0.3); }
-function attachNew(items, pid, target, portIdx = null, lenCells = 5) {
+function attachNew(items, pid, target, portIdx = null, lenCells = 5, pick = null) {
   const def = DEF[pid], fs = freeSet(analyze(items));
   let tps = portsOf(target).filter((p) => fs.has(target.id + ':' + p.idx));
   if (portIdx != null) tps = tps.filter((p) => p.idx === portIdx);
@@ -400,7 +536,8 @@ function attachNew(items, pid, target, portIdx = null, lenCells = 5) {
       if (!compat(def.ports[0].t, tp.t).ok) continue;
       return makePipe(pid, tp.pos.slice(), [tp.pos[0] + tp.d[0] * lenCells, tp.pos[1] + tp.d[1] * lenCells]);
     }
-    const cands = orientCandidates(def, tp).filter((c) => !occupied(items, c.x, c.y));
+    let cands = orientCandidates(def, tp).filter((c) => !occupied(items, c.x, c.y));
+    if (pick) cands = cands.filter((c) => Object.keys(pick).every((k) => c[k] === pick[k]));
     if (cands.length) { const c = cands[0]; return makePart(pid, c.x, c.y, c.rot, c.flip); }
   }
   return null;
@@ -639,21 +776,69 @@ function setPipeLen(o, cm) {
 }
 
 /* ------------------------------------------------------------------ Bibliothek */
+/* Größen-Unterteilung je Kategorie (Chips). Rohrsystem-Kategorien teilen nach Rohrmaß, Gewinde-/Armaturen-Kategorien nach Zoll.
+   Teile mit mehreren Größen (Reduzierungen, Übergänge) erscheinen unter jeder passenden Größe. */
+const SIZE_ORDER = ['MV16', 'MV20', 'MV26', 'MV32', 'CU15', 'CU18', 'CU22', 'CU28', 'ES15', 'ES18', 'ES22', 'ES28', '3/8', '1/2', '3/4', '1'];
+const SIZE_DN = { '3/8': 10, '1/2': 15, MV16: 15, CU15: 15, ES15: 15, MV20: 15, CU18: 15, ES18: 15, '3/4': 20, MV26: 20, CU22: 20, ES22: 20, '1': 25, MV32: 25, CU28: 25, ES28: 25 };
+const isSys = (sz) => /^(MV|CU|ES)/.test(sz);
+const sizeLabel = (sz) => (isSys(sz) ? sz.slice(2) + ' mm' : zoll(sz));
+const libSizePref = (() => { try { return JSON.parse(localStorage.getItem('rp_libsize') || '{}'); } catch (_) { return {}; } })();
+const CAT_SIZES = {};
+function catSizeInfo(c) {
+  if (CAT_SIZES[c.id]) return CAT_SIZES[c.id];
+  const parts = PARTS.filter((p) => p.cat === c.id);
+  const sizesOf = (p) => [...new Set(p.ports.map((x) => x.t.s))];
+  const nSys = parts.filter((p) => p.ports.some((x) => isSys(x.t.s))).length;
+  const mode = c.id === 'pipe' ? 'all' : (nSys * 2 > parts.length ? 'sys' : 'thr');
+  const prim = (sz) => mode === 'all' || (mode === 'sys' ? isSys(sz) : !isSys(sz));
+  const raw = new Map(parts.map((p) => [p.id, sizesOf(p).filter(prim)]));
+  const chips = SIZE_ORDER.filter((sz) => [...raw.values()].some((a) => a.includes(sz)));
+  const map = new Map();
+  parts.forEach((p) => {
+    let a = raw.get(p.id);
+    if (!a.length) a = chips.filter((ch) => sizesOf(p).some((sz) => SIZE_DN[sz] === SIZE_DN[ch])); // z. B. Gewinde-Teil in Rohrsystem-Kategorie
+    map.set(p.id, a.length ? a : chips);
+  });
+  return (CAT_SIZES[c.id] = { chips, map });
+}
+function chosenSize(c, info) {
+  let v = libSizePref[c.id];
+  if (v === 'all' || info.chips.includes(v)) return v;
+  const g = libSizePref._last; // zuletzt gewählte Größe in anderer Kategorie → gleiche Nennweite
+  if (g && g !== 'all') { const m = info.chips.find((ch) => ch === g) || info.chips.find((ch) => SIZE_DN[ch] === SIZE_DN[g]); if (m) return m; }
+  return info.chips[0] || 'all'; // Standard: kleinste Größe statt alle gemischt
+}
 function buildLibrary() {
   const q = $('libSearch').value.trim().toLowerCase();
   const openCats = new Set([...document.querySelectorAll('.cat[open]')].map((d) => d.dataset.cat));
   const first = !document.querySelector('.cat');
+  const scrollTop = $('libList').scrollTop;
   let h = '';
   CATEGORIES.forEach((c) => {
-    const items = PARTS.filter((p) => p.cat === c.id && (!q || (p.de + ' ' + p.en + ' ' + p.id + ' ' + tx(p.desc)).toLowerCase().includes(q)));
-    if (!items.length) return;
+    const all = PARTS.filter((p) => p.cat === c.id && (!q || (p.de + ' ' + p.en + ' ' + p.id + ' ' + tx(p.desc)).toLowerCase().includes(q)));
+    if (!all.length) return;
+    const info = catSizeInfo(c), useChips = !q && info.chips.length > 1;
+    const cur = useChips ? chosenSize(c, info) : 'all';
+    const items = cur === 'all' ? all : all.filter((p) => info.map.get(p.id).includes(cur));
     const open = q || openCats.has(c.id) || (first && c.id === 'pipe');
-    h += `<details class="cat" data-cat="${c.id}" ${open ? 'open' : ''}><summary>${esc(c[lang])}<span class="cnt">${items.length}</span></summary><div class="items">`
+    const chips = useChips ? `<div class="szchips" role="tablist" aria-label="${esc(t('sizeFilter'))}">`
+      + ['all', ...info.chips].map((sz) => `<button type="button" role="tab" class="szchip${sz === cur ? ' on' : ''}" aria-selected="${sz === cur}" data-szcat="${c.id}" data-sz="${sz}">${sz === 'all' ? esc(t('allSizes')) : esc(sizeLabel(sz))}</button>`).join('') + '</div>' : '';
+    h += `<details class="cat" data-cat="${c.id}" ${open ? 'open' : ''}><summary>${esc(c[lang])}<span class="cnt">${all.length}</span></summary>${chips}<div class="items">`
       + items.map((p) => `<div class="item" data-pid="${p.id}" title="${esc(tx(p.desc))}">${iconSVG(p)}<span>${esc(nm(p))}</span></div>`).join('') + '</div></details>';
   });
   $('libList').innerHTML = h || '<p class="lib-tip">–</p>';
+  $('libList').scrollTop = scrollTop;
   updateUI();
 }
+$('libList').addEventListener('click', (e) => {
+  const b = e.target.closest('.szchip'); if (!b) return;
+  libSizePref[b.dataset.szcat] = b.dataset.sz; if (b.dataset.sz !== 'all') libSizePref._last = b.dataset.sz;
+  try { localStorage.setItem('rp_libsize', JSON.stringify(libSizePref)); } catch (_) { /* egal */ }
+  const chipsEl = b.parentElement, sl = chipsEl.scrollLeft;
+  buildLibrary();
+  const nb = $('libList').querySelector(`.szchips button[data-szcat="${b.dataset.szcat}"][data-sz="${b.dataset.sz}"]`);
+  if (nb) { nb.parentElement.scrollLeft = sl; nb.focus({ preventScroll: true }); }
+});
 let lib = null;
 const isMobile = () => window.innerWidth <= 760;
 function closeLibMobile() { $('library').classList.remove('open'); }
@@ -743,7 +928,7 @@ function listTable(bars) {
 function showList() {
   const bars = localStorage.getItem('rp_bars') === '1';
   openModal(t('partsList'), `<div class="row-actions"><button id="lCsv" class="primary">⬇ ${t('csv')}</button><button id="lPrint">🖨 ${t('print')}</button>
-    <label><input type="checkbox" id="lBars" ${bars ? 'checked' : ''}> ${t('barsOpt')}</label></div><div id="lTable">${listTable(bars)}</div><div class="disclaimer">${t('disclaimerLong')}</div>`);
+    <label><input type="checkbox" id="lBars" ${bars ? 'checked' : ''}> ${t('barsOpt')}</label></div><div id="lTable">${listTable(bars)}</div><div class="disclaimer">${t('disclaimerLong')} <a href="#haftung" data-legal="haftung">${t('moreLegal')}</a></div>`);
   $('lBars').onchange = () => { localStorage.setItem('rp_bars', $('lBars').checked ? '1' : '0'); $('lTable').innerHTML = listTable($('lBars').checked); };
   $('lCsv').onclick = () => exportCSV($('lBars').checked);
   $('lPrint').onclick = doPrint;
@@ -799,7 +984,7 @@ function exampleProject(ex) {
   const add = (o, what) => { if (!o) throw new Error('Beispiel: ' + what + ' passt nicht'); o.id = mk(); P.items.push(o); return o; };
   const B = {
     place: (pid, x, y, rot = 0, flip = false) => add({ type: 'part', pid, x, y, rot, flip }, pid),
-    attach: (pid, target, portIdx = null) => add(attachNew(P.items, pid, target, portIdx), pid),
+    attach: (pid, target, portIdx = null, pick = null) => add(attachNew(P.items, pid, target, portIdx, 5, pick), pid),
     pipe: (pid, target, portIdx = null, cm = 50) => add(attachNew(P.items, pid, target, portIdx, cm / CM), pid),
   };
   const s = proj.seq; ex.build(B); proj.seq = s;
@@ -833,7 +1018,32 @@ function openModal(title, html) { $('modalTitle').textContent = title; $('modalB
 function closeModal() { $('modal').hidden = true; }
 $('modalClose').onclick = closeModal;
 $('modal').addEventListener('pointerdown', (e) => { if (e.target === $('modal')) closeModal(); });
-$('btnInfo').onclick = () => openModal(t('info'), (window.RP_INFO[lang] || window.RP_INFO.de).replace('{disc}', t('disclaimerLong')));
+const legalLinksHTML = () => `<p class="legal-inline">${['impressum', 'datenschutz', 'haftung'].map((k) => `<a href="#${k}" data-legal="${k}">${t({ impressum: 'imprint', datenschutz: 'privacy', haftung: 'disclaimerLink' }[k])}</a>`).join(' · ')}</p>`;
+$('btnInfo').onclick = () => openModal(t('info'), (window.RP_INFO[lang] || window.RP_INFO.de).replace('{disc}', t('disclaimerLong')).replace('{legal}', legalLinksHTML()));
+/* Rechtliches (legal.js): Impressum, Haftung, Partnerlinks, Datenschutz */
+let legalOpen = null;
+function openLegal(sec = 'impressum') {
+  const L = window.RP_LEGAL[lang] || window.RP_LEGAL.de;
+  legalOpen = sec;
+  openModal(L.title, `<nav class="legal-toc">${L.toc.map(([id, n]) => `<button data-legal="${id}" class="${id === sec ? 'primary' : ''}">${n}</button>`).join('')}
+    <button id="legalLang" class="small" title="Sprache / Language">${lang === 'de' ? 'English' : 'Deutsch'}</button></nav><div class="legal-body">${L.html}</div>`);
+  $('legalLang').onclick = () => { $('btnLang').onclick(); openLegal(legalOpen); };
+  setTimeout(() => scrollLegal(sec, false), 0);
+}
+function scrollLegal(sec, smooth) {
+  const el = $('lg-' + sec), body = $('modalBody'), toc = body.querySelector('.legal-toc'); if (!el || !toc) return;
+  const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - toc.offsetHeight - 4;
+  body.scrollTo({ top: sec === 'impressum' ? 0 : top, behavior: smooth ? 'smooth' : 'auto' });
+}
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-legal]'); if (!a) return;
+  e.preventDefault(); const sec = a.dataset.legal;
+  if (!$('modal').hidden && $('lg-' + sec)) { legalOpen = sec; $('modalBody').querySelectorAll('.legal-toc [data-legal]').forEach((b) => b.classList.toggle('primary', b.dataset.legal === sec)); scrollLegal(sec, true); }
+  else openLegal(sec);
+});
+const LEGAL_HASH = ['impressum', 'haftung', 'partnerlinks', 'datenschutz'];
+function legalFromHash() { const h = location.hash.slice(1).toLowerCase(); if (LEGAL_HASH.includes(h)) openLegal(h); }
+window.addEventListener('hashchange', legalFromHash);
 $('btnHints').onclick = () => openModal(t('hints'), hintsHTML());
 $('btnList').onclick = showList;
 $('btnMenu').onclick = openProjects;
@@ -884,10 +1094,11 @@ function boot() {
     localStorage.setItem('rp_seen', '1'); const s = $('splash'); s.hidden = false;
     setTimeout(() => s.classList.add('hide'), 900); setTimeout(() => (s.hidden = true), 1500);
   }
+  legalFromHash();
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 // Test-/Debug-Schnittstelle
 window.RP = { get proj() { return proj; }, get sel() { return sel; }, analyze: () => A, tapAdd, select: (id) => { sel = id; activePort = null; render(); updateUI(); },
-  fitView, csvText, computeHints, loadProject, exampleProject, rotateSel, DEF, get view() { return view; } };
+  fitView, csvText, computeHints, openLegal, loadProject, exampleProject, rotateSel, DEF, get view() { return view; } };
 boot();
 })();

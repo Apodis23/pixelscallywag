@@ -82,7 +82,14 @@
       </div>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
-    <div id="disclaimerBar" data-i18n="disclaimerShort">Planungshilfe – ersetzt keinen Fachbetrieb.</div>
+    <footer id="disclaimerBar">
+      <span class="disc-txt" data-i18n="disclaimerShort">Planungshilfe – ersetzt keinen Fachbetrieb.</span>
+      <nav class="legal-links" aria-label="Rechtliches">
+        <a href="#impressum" data-legal="impressum" data-i18n="imprint">Impressum</a>
+        <a href="#datenschutz" data-legal="datenschutz" data-i18n="privacy">Datenschutz</a>
+        <a href="#haftung" data-legal="haftung" data-i18n="disclaimerLink">Haftung</a>
+      </nav>
+    </footer>
   </section>
 </div>
 
@@ -102,6 +109,7 @@
 <script src="parts.js"></script>
 <script src="i18n.js"></script>
 <script src="info.js"></script>
+<script src="legal.js"></script>
 <script src="examples.js"></script>
 <script src="ai-stub.js"></script>
 <script src="app.js"></script>

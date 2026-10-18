@@ -1,6 +1,7 @@
 /* Rohrplaner – Beispielprojekte
    Bau-API:  B.place(teilId, x, y, rot, flip)       Teil frei setzen (x/y in Rasterfeldern à 10 cm)
-             B.attach(teilId, ziel, anschluss?)      Teil an freien Anschluss von "ziel" anstecken
+             B.attach(teilId, ziel, anschluss?, lage?) Teil an freien Anschluss von "ziel" anstecken
+                                                     (lage optional, z. B. { rot: 0, flip: true } = Abzweig nach unten)
              B.pipe(rohrId, ziel, anschluss?, cm)    Rohr mit Länge in cm an freien Anschluss setzen  */
 window.RP_EXAMPLES = [
   {
@@ -66,6 +67,55 @@ window.RP_EXAMPLES = [
       const p = B.pipe('rohr-mv20', u2, null, 50);
       const w = B.attach('mvp-w90-MV20', p);
       B.pipe('rohr-mv20', w, null, 100);
+    },
+  },
+  {
+    name: { de: 'Mein Aufbau (verzinkt)', en: 'My setup (galvanized)' },
+    desc: { de: 'Nachbau vom Foto: Kaltwasser-Verteilung in Stahl verzinkt ¾″ mit Kugelhahn, Abgängen nach unten, Sicherheitsventil + Manometer, Behälter oben, Schrägsitz-Rückflussverhinderer, Auslaufhahn und Schrägsitzventil. Größen und Längen geschätzt.', en: 'Rebuilt from a photo: galvanized ¾″ cold water manifold with ball valve, drops, safety valve + gauge, vessel above, check valve, bib tap and globe valve. Sizes and lengths estimated.' },
+    medium: 'tw',
+    build(B) {
+      const DOWN = { rot: 0, flip: true }, UP = { rot: 0, flip: false };
+      // von links (Druckkessel / Pumpe) – Kugelhahn mit rotem Hebel
+      const kh = B.place('kh-34', 0, 0);
+      B.pipe('rohr-st34', kh, 0, 30);
+      const vs1 = B.attach('tg-vs-34', kh, 1);
+      const dn1 = B.attach('tg-dn-34', vs1);
+      // T-Stück: Abgang nach unten zum Boden (links)
+      const t1 = B.attach('tg-t-34', dn1, null, DOWN);
+      B.pipe('rohr-st34', t1, 2, 50);
+      const p1 = B.pipe('rohr-st34', t1, 1, 10);
+      const m1 = B.attach('tg-m-34', p1);
+      const p2 = B.pipe('rohr-st34', m1, null, 5);
+      // T-Stück: nach oben zu Sicherheitsventil (grüne Kappe) + Manometer
+      const t2 = B.attach('tg-t-34', p2, null, UP);
+      const rs1 = B.attach('tg-rs-34-12', t2, 2);
+      const ps = B.pipe('rohr-st12', rs1, null, 15);
+      const mt = B.attach('ms-t-12', ps, null, { rot: 3, flip: false });
+      B.attach('sv-tw-12', mt, 1);
+      B.attach('mano-12', mt, 2);
+      // T-Stück: Steigleitung zum Behälter oben
+      const dn2 = B.attach('tg-dn-34', t2, 1);
+      const t3 = B.attach('tg-t-34', dn2, null, UP);
+      const riser = B.pipe('rohr-st34', t3, 2, 30);
+      const t4 = B.attach('tg-t-34', riser, null, { rot: 3, flip: true });
+      B.attach('mdb-34', t4, 1);
+      B.attach('tg-w90ia-34', t4, 2, { rot: 3, flip: false });
+      // Schrägsitz-Rückflussverhinderer (Messing, Kappe schräg nach oben)
+      const dn3 = B.attach('tg-dn-34', t3, 1);
+      const rv = B.attach('srv-34', dn3, null, UP);
+      const dn4 = B.attach('tg-dn-34', rv, 1);
+      // T-Stück mit Auslaufhahn (verchromt) nach unten
+      const t5 = B.attach('tg-t-34', dn4, null, DOWN);
+      const rs2 = B.attach('tg-rs-34-12', t5, 2);
+      B.attach('alh-12', rs2);
+      const p3 = B.pipe('rohr-st34', t5, 1, 15);
+      const m2 = B.attach('tg-m-34', p3);
+      const p4 = B.pipe('rohr-st34', m2, null, 15);
+      // Schrägsitzventil (grünes Handrad) + Verschraubung + Winkel nach unten
+      const ssv = B.attach('ssv-34', p4, null, UP);
+      const vs2 = B.attach('tg-vs-34', ssv, 1);
+      const el = B.attach('tg-w90ia-34', vs2, null, { rot: 3, flip: false });
+      B.pipe('rohr-st34', el, null, 60);
     },
   },
 ];
