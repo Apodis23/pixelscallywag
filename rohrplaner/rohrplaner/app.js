@@ -508,10 +508,10 @@ const freeSet = (an) => new Set(an.free.map((p) => p.obj.id + ':' + p.idx));
 function makePart(pid, x, y, rot = 0, flip = false) { return { id: uid(), type: 'part', pid, x, y, rot, flip }; }
 function makePipe(pid, a, b) { return { id: uid(), type: 'pipe', pid, a, b, len: null }; }
 function samePorts(def, a, b) {
-  const sig = (o) => def.ports.map((p) => tf(p.x, p.y, o.rot, o.flip).map((v) => Math.round(v * 100)).join()).sort().join('|');
+  const sig = (o) => def.ports.map((p) => tf(p.x, p.y, o.rot, o.flip).map((v) => Math.round(v * 100)).join() + ':' + p.t.k + p.t.s + (p.n || '')).sort().join('|');
   return sig(a) === sig(b);
 }
-function orientCandidates(def, tp) {
+function orientCandidates(def, tp, all = false) {
   // alle Lagen (rot/flip), bei denen ein passender Anschluss genau auf tp trifft
   const out = [];
   def.ports.forEach((pp, j) => {
@@ -520,7 +520,7 @@ function orientCandidates(def, tp) {
       const d = tf(pp.d[0], pp.d[1], rot, flip); if (d[0] * tp.d[0] + d[1] * tp.d[1] > -0.99) continue;
       const [px, py] = tf(pp.x, pp.y, rot, flip);
       const c = { x: tp.pos[0] - px, y: tp.pos[1] - py, rot, flip, j };
-      if (!out.some((o) => Math.abs(o.x - c.x) < 1e-6 && Math.abs(o.y - c.y) < 1e-6 && samePorts(def, o, c))) out.push(c);
+      if (all || !out.some((o) => Math.abs(o.x - c.x) < 1e-6 && Math.abs(o.y - c.y) < 1e-6 && samePorts(def, o, c))) out.push(c);
     } });
   });
   return out;
@@ -536,7 +536,7 @@ function attachNew(items, pid, target, portIdx = null, lenCells = 5, pick = null
       if (!compat(def.ports[0].t, tp.t).ok) continue;
       return makePipe(pid, tp.pos.slice(), [tp.pos[0] + tp.d[0] * lenCells, tp.pos[1] + tp.d[1] * lenCells]);
     }
-    let cands = orientCandidates(def, tp).filter((c) => !occupied(items, c.x, c.y));
+    let cands = orientCandidates(def, tp, !!pick).filter((c) => !occupied(items, c.x, c.y));
     if (pick) cands = cands.filter((c) => Object.keys(pick).every((k) => c[k] === pick[k]));
     if (cands.length) { const c = cands[0]; return makePart(pid, c.x, c.y, c.rot, c.flip); }
   }
@@ -1095,7 +1095,12 @@ function boot() {
     setTimeout(() => s.classList.add('hide'), 900); setTimeout(() => (s.hidden = true), 1500);
   }
   legalFromHash();
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    // neue Version übernommen -> einmal neu laden, damit sofort die aktuellen Dateien laufen
+    const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+  }
 }
 // Test-/Debug-Schnittstelle
 window.RP = { get proj() { return proj; }, get sel() { return sel; }, analyze: () => A, tapAdd, select: (id) => { sel = id; activePort = null; render(); updateUI(); },

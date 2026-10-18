@@ -100,7 +100,7 @@
       tr: { MV16: ['1/2'], MV20: ['1/2', '3/4'], MV26: ['3/4', '1'] }, nameDe: 'Steck', nameEn: 'push-fit', pre: 'mvk',
       desc: 'Steckfitting für Mehrschichtverbundrohr (Messing/PPSU, O-Ringe, Edelstahl-Haltekralle): Rohr kalibrieren und bis zum Anschlag einstecken, ohne Werkzeug' },
     { cat: 'cuklemm', mat: 'ms', tech: 'Klemm', sizes: ['CU15', 'CU18', 'CU22', 'CU28'], red: [['CU18', 'CU15'], ['CU22', 'CU18'], ['CU22', 'CU15'], ['CU28', 'CU22']],
-      tr: { CU15: ['1/2'], CU18: ['1/2', '3/4'], CU22: ['3/4', '1'], CU28: ['1'] }, nameDe: 'Klemm', nameEn: 'compr.', pre: 'cuk',
+      tr: { CU15: ['1/2', '3/4'], CU18: ['1/2', '3/4'], CU22: ['3/4', '1'], CU28: ['1'] }, nameDe: 'Klemm', nameEn: 'compr.', pre: 'cuk',
       desc: 'Messing-Klemmverschraubung mit Klemmring für Kupfer-, Edelstahl- und C-Stahlrohr (bei weichem Kupfer Stützhülse verwenden), lösbar, ohne Löten' },
     { cat: 'culoet', mat: 'cup', tech: 'Löt', sizes: ['CU15', 'CU18', 'CU22', 'CU28'], red: [['CU18', 'CU15'], ['CU22', 'CU18'], ['CU22', 'CU15'], ['CU28', 'CU22']],
       tr: { CU15: ['1/2'], CU18: ['1/2', '3/4'], CU22: ['3/4', '1'], CU28: ['1'] }, nameDe: 'Löt', nameEn: 'solder', pre: 'cul',
@@ -128,6 +128,8 @@
       (S.tr[s] || []).forEach((z) => {
         add({ ...base, id: `${S.pre}-uag-${s}-${z.replace('/', '')}`, shape: 'fit', de: `Übergang ${S.nameDe} ${dsz(s)} × ${ZOLL[z]} AG`, en: `Adapter ${S.nameEn} ${dsz(s)} × ${ZOLL[z]} male`,
           desc: { de: `${descBase}. Übergang auf Außengewinde ${ZOLL[z]}`, en: `Adapter to male thread ${ZOLL[z]}` }, ports: [L(-0.5, 0, -1, 0, T()), L(0.5, 0, 1, 0, ag(z))] });
+        add({ ...base, id: `${S.pre}-tig-${s}-${z.replace('/', '')}`, shape: 'fit', de: `T-Stück ${S.nameDe} ${dsz(s)} × ${ZOLL[z]} IG × ${dsz(s)}`, en: `Tee ${S.nameEn} ${dsz(s)} × ${ZOLL[z]} female × ${dsz(s)}`,
+          desc: { de: `${descBase}. T-Stück mit Abgang Innengewinde ${ZOLL[z]} (Durchgang ${dsz(s)} mm)`, en: `Tee with female thread branch ${ZOLL[z]} (run ${dsz(s)} mm)` }, ports: [L(-0.5, 0, -1, 0, T()), L(0.5, 0, 1, 0, T()), L(0, -0.5, 0, -1, ig(z), 'Abgang')] });
         add({ ...base, id: `${S.pre}-uig-${s}-${z.replace('/', '')}`, shape: 'fit', de: `Übergang ${S.nameDe} ${dsz(s)} × ${ZOLL[z]} IG`, en: `Adapter ${S.nameEn} ${dsz(s)} × ${ZOLL[z]} female`,
           desc: { de: `${descBase}. Übergang auf Innengewinde ${ZOLL[z]}`, en: `Adapter to female thread ${ZOLL[z]}` }, ports: [L(-0.5, 0, -1, 0, T()), L(0.5, 0, 1, 0, ig(z))] });
       });
@@ -226,6 +228,10 @@
     desc: { de: 'Membran-Sicherheitsventil für Trinkwasser (grüne Kappe), Ansprechdruck 6 bar, ½″ AG Eingang × ¾″ IG Ausblas (Ausblasleitung zum Ablauf führen)', en: 'Drinking water diaphragm safety valve (green cap), 6 bar, ½″ male inlet × ¾″ female outlet' },
     warn: { hz: { de: 'Trinkwasser-Sicherheitsventil (6 bar) nicht für Heizkreise – dort ein Heizungs-Sicherheitsventil (meist 3 bar) verwenden.', en: 'Drinking water safety valve (6 bar) is not for heating circuits – use a heating safety valve (usually 3 bar).' } },
     ports: [L(0, 0.5, 0, 1, ag('1/2'), 'Eingang'), L(0.5, 0, 1, 0, ig('3/4'), 'Ausblasleitung')] });
+  add({ id: 'sv-tw-12ig', cat: 'safety', mat: 'ms', shape: 'svtw', de: 'Sicherheitsventil Trinkwasser ½″ IG (6 bar)', en: 'Drinking water safety valve ½″ female (6 bar)',
+    desc: { de: 'Membran-Sicherheitsventil für Trinkwasser-Erwärmer (grüne Kappe, DVGW), Ansprechdruck 6 bar, ½″ IG Eingang × ¾″ IG Ausblas – z. B. mit Reduziernippel ¾″ × ½″ ins T-Stück; Ausblasleitung über Trichter zum Abwasser führen, zwischen Ventil und Speicher keine Absperrung', en: 'Drinking water heater diaphragm safety valve (green cap), 6 bar, ½″ female inlet × ¾″ female outlet – e.g. on a ¾″ × ½″ reducing nipple; route blow-off to a drain funnel, no shut-off between valve and heater' },
+    warn: { hz: { de: 'Trinkwasser-Sicherheitsventil (6 bar) nicht für Heizkreise – dort ein Heizungs-Sicherheitsventil (meist 3 bar) verwenden.', en: 'Drinking water safety valve (6 bar) is not for heating circuits – use a heating safety valve (usually 3 bar).' } },
+    ports: [L(0, 0.5, 0, 1, ig('1/2'), 'Eingang'), L(0.5, 0, 1, 0, ig('3/4'), 'Ausblasleitung')] });
   add({ id: 'mano-12', cat: 'mess', mat: 'ms', shape: 'gauge', de: 'Manometer 0–10 bar ½″ AG', en: 'Pressure gauge 0–10 bar ½″ male',
     desc: { de: 'Manometer Ø 63 mm, 0–10 bar, Anschluss unten ½″ AG (kleinere Manometer haben oft ¼″ – dann Reduzierung ½″ × ¼″ verwenden)', en: 'Pressure gauge Ø 63 mm, 0–10 bar, bottom connection ½″ male (small gauges often ¼″ – use a reducer)' },
     ports: [L(0, 0.5, 0, 1, ag('1/2'), 'Anschluss')] });
