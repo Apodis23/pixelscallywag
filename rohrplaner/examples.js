@@ -71,51 +71,86 @@ window.RP_EXAMPLES = [
   },
   {
     name: { de: 'Mein Aufbau (verzinkt)', en: 'My setup (galvanized)' },
-    desc: { de: 'Nachbau vom Foto: Kaltwasser-Verteilung in Stahl verzinkt ¾″ mit Kugelhahn, Abgängen nach unten, Sicherheitsventil + Manometer, Behälter oben, Schrägsitz-Rückflussverhinderer, Auslaufhahn und Schrägsitzventil. Größen und Längen geschätzt.', en: 'Rebuilt from a photo: galvanized ¾″ cold water manifold with ball valve, drops, safety valve + gauge, vessel above, check valve, bib tap and globe valve. Sizes and lengths estimated.' },
+    desc: { de: 'Ist-Zustand vom Foto (Version 2): Kaltwasser-Zulauf von rechts unten über Winkel und Schrägsitzventil, dann Auslaufhahn, Schrägsitz-Rückflussverhinderer, Ausdehnungsgefäß, Sicherheitsventil 6 bar und Kugelhahn zum alten Speicher links. Stahl verzinkt ¾″, Längen geschätzt.', en: 'As-is from the photo (v2): cold water from the bottom right via elbow and globe valve, then bib tap, check valve, expansion vessel, 6 bar safety valve and ball valve to the old heater on the left. Galvanized ¾″, lengths estimated.' },
     medium: 'tw',
     build(B) {
-      const DOWN = { rot: 0, flip: true }, UP = { rot: 0, flip: false };
-      // von links (Druckkessel / Pumpe) – Kugelhahn mit rotem Hebel
-      const kh = B.place('kh-34', 0, 0);
-      B.pipe('rohr-st34', kh, 0, 30);
-      const vs1 = B.attach('tg-vs-34', kh, 1);
-      const dn1 = B.attach('tg-dn-34', vs1);
-      // T-Stück: Abgang nach unten zum Boden (links)
-      const t1 = B.attach('tg-t-34', dn1, null, DOWN);
-      B.pipe('rohr-st34', t1, 2, 50);
-      const p1 = B.pipe('rohr-st34', t1, 1, 10);
+      const L = { rot: 2, flip: true }; // nach links durchströmt (Eingang rechts)
+      // Zulauf von unten rechts: Winkel verzinkt (IG unten, AG nach links)
+      const el = B.place('tg-w90ia-34', 0, 0, 3, false);
+      B.pipe('rohr-st34', el, 0, 60);
+      const vs = B.attach('tg-vs-34', el, 1);
+      const ssv = B.attach('ssv-34', vs, null, { j: 0, ...L });
+      const p1 = B.pipe('rohr-st34', ssv, null, 15);
       const m1 = B.attach('tg-m-34', p1);
-      const p2 = B.pipe('rohr-st34', m1, null, 5);
-      // T-Stück: nach oben zu Sicherheitsventil (grüne Kappe) + Manometer
-      const t2 = B.attach('tg-t-34', p2, null, UP);
-      const rs1 = B.attach('tg-rs-34-12', t2, 2);
-      const ps = B.pipe('rohr-st12', rs1, null, 15);
-      const mt = B.attach('ms-t-12', ps, null, { rot: 3, flip: false });
-      B.attach('sv-tw-12', mt, 1);
-      B.attach('mano-12', mt, 2);
-      // T-Stück: Steigleitung zum Behälter oben
-      const dn2 = B.attach('tg-dn-34', t2, 1);
-      const t3 = B.attach('tg-t-34', dn2, null, UP);
-      const riser = B.pipe('rohr-st34', t3, 2, 30);
-      const t4 = B.attach('tg-t-34', riser, null, { rot: 3, flip: true });
-      B.attach('mdb-34', t4, 1);
-      B.attach('tg-w90ia-34', t4, 2, { rot: 3, flip: false });
-      // Schrägsitz-Rückflussverhinderer (Messing, Kappe schräg nach oben)
-      const dn3 = B.attach('tg-dn-34', t3, 1);
-      const rv = B.attach('srv-34', dn3, null, UP);
-      const dn4 = B.attach('tg-dn-34', rv, 1);
-      // T-Stück mit Auslaufhahn (verchromt) nach unten
-      const t5 = B.attach('tg-t-34', dn4, null, DOWN);
-      const rs2 = B.attach('tg-rs-34-12', t5, 2);
-      B.attach('alh-12', rs2);
-      const p3 = B.pipe('rohr-st34', t5, 1, 15);
-      const m2 = B.attach('tg-m-34', p3);
-      const p4 = B.pipe('rohr-st34', m2, null, 15);
-      // Schrägsitzventil (grünes Handrad) + Verschraubung + Winkel nach unten
-      const ssv = B.attach('ssv-34', p4, null, UP);
-      const vs2 = B.attach('tg-vs-34', ssv, 1);
-      const el = B.attach('tg-w90ia-34', vs2, null, { rot: 3, flip: false });
-      B.pipe('rohr-st34', el, null, 60);
+      const n1 = B.attach('tg-ln-34-60', m1);
+      // T-Stück mit Auslaufhahn (½″ über Reduzierstück)
+      const t1 = B.attach('tg-t-34', n1, null, { j: 1, rot: 0, flip: true });
+      B.attach('alh-12', B.attach('tg-rs-34-12', t1, 2));
+      const d1 = B.attach('tg-dn-34', t1, 0);
+      // Schrägsitz-Rückflussverhinderer (Kappe schräg nach oben)
+      const rv = B.attach('srv-34', d1, null, { j: 0, ...L });
+      const d2 = B.attach('tg-dn-34', rv, 1);
+      // T-Stück: Steigrohr zum Ausdehnungsgefäß, oben T mit verschlossenem Abgang
+      const t2 = B.attach('tg-t-34', d2, null, { j: 1, rot: 0, flip: false });
+      const riser = B.pipe('rohr-st34', t2, 2, 30);
+      const t3 = B.attach('tg-t-34', riser, null, { j: 1, rot: 1, flip: false });
+      B.attach('mdb-34', t3, 0);
+      B.attach('tg-ka-34', B.attach('tg-dn-34', t3, 2));
+      // T-Stück: Sicherheitsventil 6 bar (½″) über Doppelnippel, Reduziermuffe und Langnippel
+      const d3 = B.attach('tg-dn-34', t2, 0);
+      const t4 = B.attach('tg-t-34', d3, null, { j: 1, rot: 0, flip: false });
+      const rm = B.attach('tg-rm-34-12', B.attach('tg-dn-34', t4, 2), null);
+      B.attach('sv-tw-12ig', B.attach('tg-ln-12-100', rm), null);
+      // weiter nach links: Muffe, Langnippel, T-Stück mit Rohr nach unten, Verschraubung, Kugelhahn
+      const d4 = B.attach('tg-dn-34', t4, 0);
+      const m2 = B.attach('tg-m-34', d4);
+      const n2 = B.attach('tg-ln-34-100', m2);
+      const t5 = B.attach('tg-t-34', n2, null, { j: 1, rot: 0, flip: true });
+      B.pipe('rohr-st34', t5, 2, 50);
+      const vs2 = B.attach('tg-vs-34', t5, 0);
+      const kh = B.attach('kh-34', B.attach('tg-dn-34', vs2));
+      B.pipe('rohr-st34', kh, null, 30);
+    },
+  },
+  {
+    name: { de: 'Kaltwasser neu (Verbund)', en: 'New cold water (multilayer)' },
+    desc: { de: 'Geplanter Neubau Kaltwasser zur LG-Warmwasser-Wärmepumpe: Absperrventil (bleibt), Druckminderer, Auslaufhahn, Rückflussverhinderer + Kugelhahn, Ausdehnungsgefäß, Sicherheitsventil 6 bar, Abgang Zirkulation (später) und Panzerschlauch. Alu-Verbund 20×2 mit Schraubfittingen.', en: 'Planned cold water to the LG heat pump water heater: shut-off (existing), pressure reducer, bib tap, check valve + ball valve, expansion vessel, 6 bar safety valve, circulation tee (later) and braided hose. Multilayer 20×2 compression fittings.' },
+    medium: 'tw',
+    build(B) {
+      const L = { rot: 2, flip: true };
+      const R = 'rohr-mv20';
+      // Bestand: Steigrohr verzinkt, Winkel, Verschraubung, Schrägsitzventil (grünes Handrad)
+      const el = B.place('tg-w90ia-34', 0, 0, 3, false);
+      B.pipe('rohr-st34', el, 0, 60);
+      const vs = B.attach('tg-vs-34', el, 1);
+      const ssv = B.attach('ssv-34', vs, null, { j: 0, ...L });
+      // NEU: Druckminderer ¾″ AG direkt ins Ventil, dann Kupplung 20 × ¾″ IG
+      const dm = B.attach('dm-34', ssv, null, { j: 0, ...L });
+      const k1 = B.attach('mvs-uig-MV20-34', dm, null, { j: 1 });
+      // T-Stück 1: Auslaufhahn (alter Wasserhahn ½″) über Reduzierstück ¾″ AG × ½″ IG
+      const t1 = B.attach('mvs-tig-MV20-34', B.pipe(R, k1, null, 10), null, { j: 1, rot: 0, flip: true });
+      B.attach('alh-12', B.attach('ms-rs-34-12', t1, 2));
+      // Rückflussverhinderer + Kugelhahn als Block (Doppelnippel dazwischen)
+      const k2 = B.attach('mvs-uag-MV20-34', B.pipe(R, t1, 0, 10), null, { j: 0 });
+      const rv = B.attach('rv-34', k2, null, { j: 0, ...L });
+      const kh = B.attach('kh-34', B.attach('ms-dn-34', rv, 1));
+      const k3 = B.attach('mvs-uag-MV20-34', kh, null);
+      // T-Stück 2: Ausdehnungsgefäß Trinkwasser oben (2 × Winkel 20)
+      const t2 = B.attach('mvs-tig-MV20-34', B.pipe(R, k3, null, 10), null, { j: 1, rot: 0, flip: false });
+      const k4 = B.attach('mvs-uag-MV20-34', t2, 2);
+      const w1 = B.attach('mvs-w90-MV20', B.pipe(R, k4, null, 50), null, { rot: 2, flip: false });
+      const w2 = B.attach('mvs-w90-MV20', B.pipe(R, w1, null, 30), null, { rot: 0, flip: false });
+      const k5 = B.attach('mvs-uig-MV20-34', B.pipe(R, w2, null, 10), null);
+      B.attach('mdb-34', k5);
+      // T-Stück 3: Sicherheitsventil 6 bar über Reduziernippel ¾″ × ½″ (Ausblas zum Trichter/Abwasser)
+      const t3 = B.attach('mvs-tig-MV20-34', B.pipe(R, t2, 0, 10), null, { j: 1, rot: 0, flip: false });
+      B.attach('sv-tw-12ig', B.attach('ms-rn-34-12', t3, 2));
+      // T-Stück 4: Abgang Zirkulation (kommt später, bis dahin Stopfen)
+      const t4 = B.attach('mvs-tig-MV20-34', B.pipe(R, t3, 0, 15), null, { j: 1, rot: 0, flip: true });
+      B.attach('ms-st-34', t4, 2);
+      // Ende: Kupplung 20 × ¾″ AG + Panzerschlauch zur Wärmepumpe (Kaltwasser-Eingang)
+      const k6 = B.attach('mvs-uag-MV20-34', B.pipe(R, t4, 0, 15), null, { j: 0 });
+      B.attach('ps-34-ig-50', k6);
     },
   },
 ];
