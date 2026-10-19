@@ -1,7 +1,7 @@
 /* Rohrplaner – Service Worker
    Netzwerk zuerst: online kommt immer die neueste Version (Updates ohne Cache-Löschen),
    offline wird die zuletzt geladene Version aus dem Cache verwendet. */
-const CACHE = 'rohrplaner-v7';
+const CACHE = 'rohrplaner-v8';
 const FILES = ['./', 'index.html', 'styles.css', 'parts.js', 'i18n.js', 'info.js', 'legal.js', 'examples.js', 'ai-stub.js', 'app.js',
   'manifest.webmanifest', 'icons/icon.svg'];
 self.addEventListener('install', (e) => {

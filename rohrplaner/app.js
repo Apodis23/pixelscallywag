@@ -110,15 +110,72 @@ function deco(tp, matKey) {
     if (tp.tech === 'Press') return rect(-11, -(w / 2 + 5), 11, w + 10, '#cdd3da') + rect(-7.5, -2.5, 3.5, 5, '#5b6675', 1, 'stroke-width="0"');
     return rect(-13, -(w / 2 + 6), 13, w + 12, MAT.ms.fill, 3) + ln(-9, -(w / 2 + 5), -9, w / 2 + 5, OUT, 1, 'opacity=".45"') + ln(-4, -(w / 2 + 5), -4, w / 2 + 5, OUT, 1, 'opacity=".45"');
   }
-  if (tp.k === 'ig') return rect(-11, -(w / 2 + 5), 11, w + 10, M.fill, 2) + ln(-7, -(w / 2 + 4), -7, w / 2 + 4, OUT, 1, 'opacity=".35"') + ln(-3, -(w / 2 + 4), -3, w / 2 + 4, OUT, 1, 'opacity=".35"');
+  if (tp.k === 'ig') {
+    // Innengewinde: breiter Kragen, dunkle Stirnfläche, Gewindegänge innen
+    let s = rect(-8, -(w / 2 + 5), 8, w + 10, M.fill, 2, 'stroke-width="2.2"') + ln(-1.5, -(w / 2 + 3.5), -1.5, w / 2 + 3.5, OUT, 2.4);
+    s += ln(-5, -(w / 2 + 2), -5, w / 2 + 2, OUT, 1.1, 'opacity=".6" stroke-dasharray="2 1.6"');
+    return s;
+  }
   if (tp.k === 'ag') {
-    let s = rect(-9, -(w / 2 - 1), 9, w - 2, M.fill, 1);
-    for (let x = -7; x <= -1; x += 3) s += ln(x, -(w / 2 - 2), x - 2, w / 2 - 2, OUT, 1, 'opacity=".55"');
+    // Außengewinde: schmaler Zapfen mit kräftiger Schraffur
+    let s = rect(-8, -(w / 2 - 1), 8, w - 2, M.hl, 1, 'stroke-width="1.8"');
+    for (let x = -6.5; x <= 0; x += 2.6) s += ln(x + 1.6, -(w / 2 - 0.8), x - 1.2, w / 2 - 0.8, OUT, 1.3, 'opacity=".8"');
     return s;
   }
   return '';
 }
 const decoAt = (p, matKey) => `<g transform="translate(${f1(p.x * C)},${f1(p.y * C)}) rotate(${f1(Math.atan2(p.d[1], p.d[0]) * 180 / Math.PI)})">${deco(p.t, matKey)}</g>`;
+/* Fittinge (Winkel, Bögen, T-Stücke, Nippel, Muffen, Übergänge, Reduzierungen) – deutlich, nicht maßstäblich */
+const FW = (s) => bw(s) + 3;
+function tubePath(d, w, M, join = 'miter') {
+  return { o: `<path d="${d}" fill="none" stroke="${OUT}" stroke-width="${f1(w + 5)}" stroke-linejoin="${join}" stroke-miterlimit="4"/>`,
+    f: `<path d="${d}" fill="none" stroke="${M.fill}" stroke-width="${f1(w)}" stroke-linejoin="${join}" stroke-miterlimit="4"/>`,
+    h: `<path d="${d}" fill="none" stroke="${M.hl}" stroke-width="${f1(Math.max(2, w * 0.22))}" stroke-linejoin="${join}" opacity=".85" transform="translate(${f1(-w * 0.18)},${f1(-w * 0.18)})"/>` };
+}
+function hexNut(x, h, M) {
+  // Sechskant in Seitenansicht: angefaste Kontur + zwei Kanten
+  const a = 6.5, c = 2.2, y = h / 2;
+  return `<path d="M${x - a} ${-y + c}L${x - a + c} ${-y}H${x + a - c}L${x + a} ${-y + c}V${y - c}L${x + a - c} ${y}H${x - a + c}L${x - a} ${y - c}Z" fill="${M.fill}" stroke="${OUT}" stroke-width="2.4"/>`
+    + ln(x - 3, -y + 1, x - 3, y - 1, OUT, 1.4, 'opacity=".7"') + ln(x + 3, -y + 1, x + 3, y - 1, OUT, 1.4, 'opacity=".7"')
+    + ln(x - a + 2, -y + 3, x - 3.8, -y + 3, M.hl, 2, 'opacity=".9"');
+}
+function drawFit(def, M) {
+  const ps = def.ports, n = ps.length, P = (p) => [f1(p.x * C), f1(p.y * C)];
+  const ws = ps.map((p) => FW(p.t.s)), wmax = Math.max(...ws);
+  const thrd = (p) => p.t.k === 'ig' || p.t.k === 'ag';
+  let s = '';
+  if (n === 2 && Math.abs(ps[0].d[0] * ps[1].d[0] + ps[0].d[1] * ps[1].d[1] + 1) < 0.02) {
+    // gerade Teile (liegen immer waagrecht -x … +x)
+    const [l, r] = ps[0].x < ps[1].x ? [0, 1] : [1, 0], xl = ps[l].x * C, xr = ps[r].x * C;
+    const a = ws[l] / 2, b = ws[r] / 2;
+    if (a !== b) {
+      // Reduzierung: sichtbarer Konus zwischen zwei Größen
+      s += `<path d="M${xl} ${-a}H-5L5 ${-b}H${xr}V${b}H5L-5 ${a}H${xl}Z" fill="${M.fill}" stroke="${OUT}" stroke-width="2.4" stroke-linejoin="round"/>`
+        + `<path d="M${xl + 2} ${-a + 2.5}H-5.5L4.5 ${-b + 2.5}H${xr - 2}" fill="none" stroke="${M.hl}" stroke-width="2" opacity=".9"/>`
+        + ln(-5, -a + 1, -5, a - 1, OUT, 1.2, 'opacity=".5"') + ln(5, -b + 1, 5, b - 1, OUT, 1.2, 'opacity=".5"');
+    } else {
+      s += rect(xl, -a, xr - xl, 2 * a, M.fill, 1.5, 'stroke-width="2.4"') + ln(xl + 2, -a + 2.5, xr - 2, -a + 2.5, M.hl, 2, 'opacity=".9"');
+      if (!def.hex && !/-ln-/.test(def.id) && !(thrd(ps[0]) !== thrd(ps[1]))) s += rect(-3, -a - 2.5, 6, 2 * a + 5, M.fill, 1.5, 'stroke-width="2"'); // Muffe/Kupplung: Mittelwulst
+    }
+    if (def.hex || thrd(ps[0]) !== thrd(ps[1]) || ps.some((p) => p.t.k === 'sock') && ps.some(thrd)) s += hexNut(0, wmax + 8, M);
+    if (/-ln-/.test(def.id)) s += ln(-6, 0, 6, 0, OUT, 1.4, 'opacity=".6"') + `<path d="M-6 -3L-9 0L-6 3M6 -3L9 0L6 3" fill="none" stroke="${OUT}" stroke-width="1.4" opacity=".6"/>`;
+    return s;
+  }
+  // Winkel / Bögen / T-Stücke: kräftiger gebogener bzw. T-förmiger Körper
+  const segs = ps.map((p) => `M${P(p).join(' ')}L0 0`);
+  if (n === 2) {
+    const bend45 = Math.abs(ps[0].d[0] * ps[1].d[0] + ps[0].d[1] * ps[1].d[1]) > 0.3, r = bend45 ? 6 : 11;
+    const [ax, ay] = P(ps[0]), [bx, by] = P(ps[1]);
+    const d = `M${ax} ${ay}L${f1(ps[0].d[0] * r)} ${f1(ps[0].d[1] * r)}Q0 0 ${f1(ps[1].d[0] * r)} ${f1(ps[1].d[1] * r)}L${bx} ${by}`;
+    const T = tubePath(d, wmax, M, 'round');
+    s += T.o + T.f + T.h;
+  } else {
+    const parts = segs.map((d, i) => tubePath(d, ws[i], M, 'miter'));
+    s += parts.map((x) => x.o).join('') + `<rect x="${-wmax / 2 - 2.5}" y="${-wmax / 2 - 2.5}" width="${wmax + 5}" height="${wmax + 5}" fill="${OUT}"/>`
+      + parts.map((x) => x.f).join('') + `<rect x="${-wmax / 2}" y="${-wmax / 2}" width="${wmax}" height="${wmax}" fill="${M.fill}"/>` + parts.map((x) => x.h).join('');
+  }
+  return s;
+}
 function drawPart(def) {
   const M = MAT[def.mat] || MAT.ms, ps = def.ports, sh = def.shape;
   const wmax = Math.max(...ps.map((p) => bw(p.t.s))) + 2;
@@ -127,7 +184,8 @@ function drawPart(def) {
   const arms = () => ps.map((p) => [0, 0, p.x * C, p.y * C, bw(p.t.s) + 2]);
   let s = '';
   switch (sh) {
-    case 'fit': case 'wall': {
+    case 'fit': if (!def.hexOld) { s += drawFit(def, M) + decos(); break; } // falls through
+    case 'wall': {
       if (sh === 'wall') s += rect(-17, -17, 34, 34, '#e9edf2', 5) + [[11, 11], [11, -11], [-11, 11]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3" fill="#fff" stroke="${OUT}" stroke-width="1.5"/>`).join('');
       const bent = ps.length > 2 || ps.some((p) => Math.abs(p.d[0]) < 0.99);
       s += tubes(arms(), M, bent ? wmax : 0);
@@ -391,6 +449,13 @@ function bubble(x, y, text, bg) {
   return `<g transform="translate(${f1(x)},${f1(y)}) scale(${f1(s)})" pointer-events="none"><rect x="${-W / 2}" y="${-H - 22}" width="${W}" height="${H}" rx="9" fill="${bg}" opacity=".95"/>`
     + lines.map((l, i) => `<text x="0" y="${-H - 22 + 18 + i * 16}" text-anchor="middle" fill="#fff" style="font:600 12.5px system-ui,sans-serif">${esc(l)}</text>`).join('') + '</g>';
 }
+const SMALL = { fit: 1, plug: 1, cap: 1, union: 1 };
+function fitLabel(def) {
+  const one = (x) => ZOLL[x] || x.replace(/^[A-Z]+/, '');
+  const u = [...new Set(def.ports.map((p) => p.t.s))].map(one).join('×');
+  const m = /-ln-.*-(\d+)$/.exec(def.id);
+  return m ? u + ' L' + m[1] : u;
+}
 function renderOverlay() {
   let s = '';
   const f = 1 / Math.max(0.5, Math.min(view.k, 1.5));
@@ -412,9 +477,21 @@ function renderOverlay() {
     s += pill(mx + u[1] * off, my - u[0] * off, pipeLenCm(o) + ' cm' + (o.len != null ? ' ✎' : ''), o.id === sel ? '#1f6feb' : '#fff', o.id === sel ? '#fff' : OUT);
   });
   proj.items.forEach((o) => {
-    const w = DEF[o.pid].warn && DEF[o.pid].warn[proj.medium]; if (!w) return;
-    const c = o.type === 'pipe' ? [(o.a[0] + o.b[0]) / 2, (o.a[1] + o.b[1]) / 2] : [o.x, o.y];
-    s += `<g transform="translate(${f1(c[0] * C)},${f1(c[1] * C - 4)}) scale(${f1(f)})" pointer-events="none"><circle r="8" fill="#ffb300" stroke="${OUT}" stroke-width="1.5"/><text y="4" text-anchor="middle" style="font:800 11px system-ui" fill="${OUT}">!</text></g>`;
+    const def = DEF[o.pid], w = def.warn && def.warn[proj.medium];
+    let c = o.type === 'pipe' ? [(o.a[0] + o.b[0]) / 2 * C, (o.a[1] + o.b[1]) / 2 * C - 4] : [o.x * C, o.y * C - 4];
+    if (o.type !== 'pipe' && (SMALL[def.shape] || w)) {
+      // freie Ecke/Seite suchen, damit Hinweis-Punkt und Größe das Teil nicht verdecken
+      const ds = portsOf(o).map((p) => p.d), cost = (v) => ds.reduce((a, d) => a + Math.max(0, d[0] * v[0] + d[1] * v[1]), 0);
+      const corner = [[1, -1], [-1, -1], [1, 1], [-1, 1]].sort((a, b) => cost(a) - cost(b))[0];
+      c = [o.x * C + corner[0] * 17, o.y * C + corner[1] * 17];
+      if (SMALL[def.shape] && view.k >= 1.2) {
+        const side = [[0, 1], [0, -1], [1, 0], [-1, 0]].sort((a, b) => cost(a) - cost(b))[0], lb = fitLabel(def);
+        const r = 21 + 7 * f;
+        s += `<text x="${f1(o.x * C + side[0] * (r + (side[0] ? lb.length * 2.6 * f : 0)))}" y="${f1(o.y * C + side[1] * r + 3.5 * f)}" text-anchor="middle" class="fit-lbl" style="font:700 ${f1(11 * f)}px system-ui,sans-serif" fill="#1d2633" stroke="#fff" stroke-width="${f1(3 * f)}" paint-order="stroke" pointer-events="none">${esc(lb)}</text>`;
+      }
+    }
+    if (!w) return;
+    s += `<g transform="translate(${f1(c[0])},${f1(c[1])}) scale(${f1(f * 0.8)})" pointer-events="none"><circle r="8" fill="#ffb300" stroke="${OUT}" stroke-width="1.5"/><text y="4" text-anchor="middle" style="font:800 11px system-ui" fill="${OUT}">!</text></g>`;
   });
   const seen = new Set();
   A.all.forEach((p) => {
@@ -900,6 +977,31 @@ $('libList').addEventListener('touchmove', (e) => { if (lib && lib.dragging) e.p
 $('libList').addEventListener('contextmenu', (e) => e.preventDefault());
 $('libSearch').addEventListener('input', buildLibrary);
 
+/* ------------------------------------------------------------------ Partnerlinks (AWIN) */
+// HeizungsDiscount24 (AWIN advertiserId 120593, Publisher 3127037). Shop-Suche erwartet ISO-8859-1 (Umlaute als %FC usw.).
+const HD24 = { mid: 120593, aff: 3127037, search: 'https://www.heizungsdiscount24.de/shop/system/?func=searchcheck&sbeg=' };
+const SHOP_PREFIX = { mvpress: 'Verbundrohr', mvschraub: 'Verbundrohr', mvsteck: 'Verbundrohr', cupress: 'Kupfer', cuklemm: 'Kupfer', culoet: 'Kupfer', espress: 'Edelstahl', msgew: 'Messing', tg: 'Temperguss' };
+// geprüfte Ersatz-Suchbegriffe (null = Shop führt das Teil nicht -> kein Button)
+const SHOP_Q = {"mvp-b45-MV16":"Verbundrohr Winkel 45 Press 16x2","mvp-b45-MV20":"Verbundrohr Winkel 45 Press 20x2","mvp-b45-MV26":"Verbundrohr Winkel 45 Press 26x3","mvp-b45-MV32":"Verbundrohr Winkel 45 Press 32x3","mvs-b45-MV16":"Verbundrohr Winkel 45 Schraub 16x2","mvs-b45-MV20":"Verbundrohr Winkel 45 Schraub 20x2","mvs-b45-MV26":"Verbundrohr Winkel 45 Schraub 26x3","cup-red-CU28-CU22":"Reduzierung Press 28 22","mvk-b45-MV16":"Verbundrohr Winkel 45 Steck 16x2","mvk-b45-MV20":"Verbundrohr Winkel 45 Steck 20x2","mvk-b45-MV26":"Verbundrohr Winkel 45 Steck 26x3","cuk-t-CU15":"T-Stück Klemm 15","cuk-uag-CU15-12":"Übergang Klemm 15 1/2","cuk-uig-CU15-12":"Übergang Klemm 15 1/2","cuk-tig-CU15-12":"T-Stück Klemm 15 1/2","cuk-uag-CU15-34":"Übergang Klemm 15 3/4","cuk-uig-CU15-34":"Übergang Klemm 15 3/4","cuk-tig-CU15-34":"T-Stück Klemm 15 3/4","cuk-t-CU18":"T-Stück Klemm 18","cuk-uag-CU18-12":"Übergang Klemm 18 1/2","cuk-uig-CU18-12":"Übergang Klemm 18 1/2","cuk-tig-CU18-12":"T-Stück Klemm 18 1/2","cuk-uag-CU18-34":"Übergang Klemm 18 3/4","cuk-uig-CU18-34":"Übergang Klemm 18 3/4","cuk-tig-CU18-34":"T-Stück Klemm 18 3/4","cuk-t-CU22":"T-Stück Klemm 22","cuk-uag-CU22-34":"Übergang Klemm 22 3/4","cuk-uig-CU22-34":"Übergang Klemm 22 3/4","cuk-tig-CU22-34":"T-Stück Klemm 22 3/4","cuk-uag-CU22-1":"Übergang Klemmverschraubung 22 1","cuk-uig-CU22-1":"Übergang Klemmverschraubung 22 1","cuk-tig-CU22-1":"T-Stück Klemm 22 1","cuk-t-CU28":"T-Stück Klemm 28","cuk-uag-CU28-1":"Übergang Klemm 28 1","cuk-uig-CU28-1":"Übergang Klemm 28 1","cuk-tig-CU28-1":"T-Stück Klemm 28 1","cuk-red-CU18-CU15":"Reduzierung Klemm 18 15","cuk-red-CU22-CU18":"Reduzierung Klemm 22 18","cuk-red-CU22-CU15":"Reduzierung Klemm 22 15","cuk-red-CU28-CU22":"Reduzierung Klemm 28 22","cul-red-CU28-CU22":"Reduzierung Löt 28 22","ssv-12":"Schrägsitzventil","ws-mv16":"Wandscheibe","ws-mv16s":"Wandscheibe","sg-34":"Sicherheitsgruppe 3/4","hws-34":"Hauswasserstation","wz-15":"Wasserzähler","wz-20":"Wasserzähler","fj-34":"Durchströmungsarmatur","pump-15-130":"Heizungs-Umwälzpumpe","pump-25-180":"Heizungs-Umwälzpumpe","hblk-e":null,"alh-12":null,"alh-34":null,"wmv-12":null,"rb-12":null,"rb-34":null,"wzb-34":null,"wzb-1":null,"keckv-12":null};
+function shopQuery(def) {
+  if (def.id in SHOP_Q) return SHOP_Q[def.id];
+  let n = def.de.split(' / ')[0];
+  for (const k in ZOLL) n = n.split(ZOLL[k]).join(' ' + k + ' ');
+  n = n.replace('Alu-Verbundrohr', 'Mehrschichtverbundrohr').replace(/(\d)×(\d)/g, '$1x$2').replace(/[×→°()]/g, ' ')
+    .replace(/(^|\s)(IG|AG|ÜM)(\/(IG|AG|ÜM))?(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+  n = n.replace(/\s\d+ (mm|cm)\b/g, '').replace(/\s(mit|ohne)\s.*$/, '').replace(/flachdichtend|Schrägsitz-/g, '').replace(/^Membran-Druckbehälter/, 'Ausdehnungsgefäß Trinkwasser').trim();
+  if (def.cat === 'mvpress') n = n.replace(/^Winkel 90 Press/, 'Press-Winkel');
+  n = [...new Set(n.split(' '))].join(' ');
+  if (def.id.startsWith('eckv')) n = n.split(' ').slice(0, 2).join(' ');
+  if (/-ln-/.test(def.id)) return n;
+  const pre = SHOP_PREFIX[def.cat];
+  return pre && !n.includes(pre) ? pre + ' ' + n : n;
+}
+const enc1 = (q) => Array.from(q).map((ch) => { const c = ch.charCodeAt(0); return /[A-Za-z0-9\-_.~\/]/.test(ch) ? ch : c < 256 ? '%' + c.toString(16).toUpperCase().padStart(2, '0') : ''; }).join('');
+const hd24Url = (def) => HD24.search + enc1(shopQuery(def));
+const hd24Link = (def) => `https://www.awin1.com/cread.php?awinmid=${HD24.mid}&awinaffid=${HD24.aff}&ued=${encodeURIComponent(hd24Url(def))}`;
+const affBtn = (def) => shopQuery(def) == null ? '' : `<a class="aff-btn" href="${esc(hd24Link(def))}" target="_blank" rel="sponsored noopener">${lang === 'de' ? 'bei HeizungsDiscount24 ansehen' : 'view at HeizungsDiscount24'}*</a> <span class="aff-tag">${lang === 'de' ? 'Anzeige' : 'Ad'}</span>`;
+
 /* ------------------------------------------------------------------ Teileliste */
 function partsRows() {
   const cnt = new Map();
@@ -920,10 +1022,11 @@ function listTable(bars) {
   rows.forEach((r) => {
     if (r.cat !== last) { h += `<tr class="grp"><td colspan="4">${esc(r.cat[lang])}</td></tr>`; last = r.cat; }
     const q = qtyOf(r, bars);
-    h += `<tr><td class="ico">${iconSVG(r.def)}</td><td class="q">${q.q}</td><td>${q.u}</td><td><b>${esc(nm(r.def))}</b>${q.extra ? ` <span style="color:#1f6feb;font-weight:600">${q.extra}</span>` : ''}<div class="d">${esc(tx(r.def.desc))}</div></td></tr>`;
+    h += `<tr><td class="ico">${iconSVG(r.def)}</td><td class="q">${q.q}</td><td>${q.u}</td><td><b>${esc(nm(r.def))}</b>${q.extra ? ` <span style="color:#1f6feb;font-weight:600">${q.extra}</span>` : ''}<div class="d">${esc(tx(r.def.desc))}</div><div class="aff">${affBtn(r.def)}</div></td></tr>`;
   });
   const nParts = rows.filter((r) => r.def.shape !== 'pipe').reduce((a, r) => a + r.q, 0), m = rows.filter((r) => r.def.shape === 'pipe').reduce((a, r) => a + r.q, 0) / 100;
-  return h + `</tbody></table><p style="font-weight:700">${t('summary', { n: nParts, m: fmtNum(m) })}</p>`;
+  return h + `</tbody></table><p style="font-weight:700">${t('summary', { n: nParts, m: fmtNum(m) })}</p>`
+    + `<p class="aff aff-foot">* ${lang === 'de' ? 'Partnerlink (Anzeige): Kaufst du darüber, bekomme ich eine kleine Provision, für dich ändert sich der Preis nicht. Der Link führt zur Shop-Suche, bitte Größe und Ausführung vor dem Kauf prüfen.' : 'Affiliate link (ad): if you buy through it, I receive a small commission at no extra cost to you. The link opens the shop search, please check size and type before buying.'} <a href="#partnerlinks" data-legal="partnerlinks">${lang === 'de' ? 'Mehr zu Partnerlinks' : 'More about affiliate links'}</a></p>`;
 }
 function showList() {
   const bars = localStorage.getItem('rp_bars') === '1';
@@ -1104,6 +1207,6 @@ function boot() {
 }
 // Test-/Debug-Schnittstelle
 window.RP = { get proj() { return proj; }, get sel() { return sel; }, analyze: () => A, tapAdd, select: (id) => { sel = id; activePort = null; render(); updateUI(); },
-  fitView, csvText, computeHints, openLegal, loadProject, exampleProject, rotateSel, DEF, get view() { return view; } };
+  fitView, csvText, shopQuery, hd24Url, hd24Link, computeHints, openLegal, loadProject, exampleProject, rotateSel, DEF, get view() { return view; } };
 boot();
 })();
