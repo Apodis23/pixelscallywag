@@ -392,6 +392,7 @@ function bboxOf(def) {
   return (BBOX[def.id] = [x0, y0, x1, y1]);
 }
 function iconSVG(def) {
+  if (def.virtual) return `<svg viewBox="-20 -20 40 40"><path d="M-12 4A12 12 0 0 1 12 4" fill="none" stroke="#6b7480" stroke-width="5"/><rect x="-17" y="2" width="8" height="6" fill="#6b7480"/><rect x="9" y="2" width="8" height="6" fill="#6b7480"/><line x1="0" y1="-8" x2="0" y2="-18" stroke="#6b7480" stroke-width="4"/></svg>`;
   const [x0, y0, x1, y1] = bboxOf(def), p = 6;
   return `<svg viewBox="${x0 - p} ${y0 - p} ${x1 - x0 + 2 * p} ${y1 - y0 + 2 * p}" preserveAspectRatio="xMidYMid meet">${drawPart(def)}</svg>`;
 }
@@ -410,7 +411,7 @@ let preview = null;       // Vorschau im Overlay
 let A = analyze([]);      // aktuelle Analyse
 const settings = JSON.parse(localStorage.getItem('rp_settings') || '{"ai":false}');
 
-function newProject() { return { v: 1, name: t('untitled'), medium: 'tw', items: [], seq: 1 }; }
+function newProject() { return { v: 1, name: t('untitled'), medium: 'tw', items: [], routes: [], seq: 1 }; }
 const uid = () => 'o' + (proj.seq++);
 const byId = (id) => proj.items.find((o) => o.id === id);
 const snapshot = () => JSON.stringify(proj);
@@ -527,7 +528,7 @@ function renderOverlay() {
     s += `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(15 * f)}" fill="${col}" opacity=".28" pointer-events="none"/><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(15 * f)}" fill="none" stroke="${col}" stroke-width="${f1(2.5 * f)}" pointer-events="none"/>`;
     if (!sp.ok) s += bubble(x, y - 6 * f, sp.msg, '#c62f2f');
   }
-  overG.innerHTML = s;
+  overG.innerHTML = s + routeOverlay(f);
 }
 
 /* ------------------------------------------------------------------ UI-Status */
@@ -544,12 +545,14 @@ function updateUI() {
     $('selPorts').textContent = t('ports') + ': ' + portsOf(o).map((p) => fmtPort(p.t) + (A.status.get(o.id + ':' + p.idx)?.s === 'free' ? ' (' + t('free') + ')' : '')).join(' · ');
     $('selLenBox').hidden = o.type !== 'pipe';
     $('selFlip').hidden = o.type === 'pipe';
+    $('selCont').hidden = !A.free.some((p) => p.obj === o);
     if (o.type === 'pipe' && document.activeElement !== $('selLen')) $('selLen').value = pipeLenCm(o);
   }
   document.querySelectorAll('.item').forEach((el) => el.classList.toggle('active', el.dataset.pid === drawPid));
   $('drawBanner').hidden = !drawPid;
   if (drawPid) $('drawText').innerHTML = t('drawBanner', { name: esc(nm(DEF[drawPid])) });
-  svg.classList.toggle('drawing', !!drawPid);
+  svg.classList.toggle('drawing', !!drawPid || (typeof RU !== 'undefined' && RU.on));
+  $('btnRoute').classList.toggle('on', typeof RU !== 'undefined' && RU.on);
 }
 let toastTimer;
 function toast(msg, type = '', ms = 3400) {
@@ -570,6 +573,7 @@ function computeHints() {
   if (items.some((o) => DEF[o.pid].shape === 'sg')) H.push({ lvl: 'info', msg: t('sgInfo') });
   if (items.some((o) => DEF[o.pid].shape === 'hose')) H.push({ lvl: 'info', msg: t('hoseInfo') });
   if (A.free.length) H.push({ lvl: 'info', msg: t('openEnds', { n: A.free.length }) });
+  H.push(...routeHints());
   if (med !== 'hz' && items.length) H.push({ lvl: 'info', msg: t('twLaw') });
   return H;
 }
@@ -1004,17 +1008,20 @@ const affBtn = (def) => shopQuery(def) == null ? '' : `<a class="aff-btn" href="
 
 /* ------------------------------------------------------------------ Teileliste */
 function partsRows() {
-  const cnt = new Map();
-  proj.items.forEach((o) => { const v = o.type === 'pipe' ? pipeLenCm(o) : 1; cnt.set(o.pid, (cnt.get(o.pid) || 0) + v); });
+  const cnt = new Map(), pipeCm = [];
+  proj.items.forEach((o) => { const v = o.type === 'pipe' ? pipeLenCm(o) : 1; cnt.set(o.pid, (cnt.get(o.pid) || 0) + v); if (o.type === 'pipe') pipeCm.push([o.pid, v]); });
+  (proj.routes || []).forEach((r) => (r.gen ? r.gen.extra : []).forEach(([pid, q]) => { cnt.set(pid, (cnt.get(pid) || 0) + q); if (DEF[pid].shape === 'pipe') pipeCm.push([pid, q]); }));
   const rows = [];
   CATEGORIES.forEach((c) => PARTS.filter((p) => p.cat === c.id && cnt.has(p.id)).forEach((p) => rows.push({ cat: c, def: p, q: cnt.get(p.id) })));
+  [...clampCounts(pipeCm).entries()].sort((a, b) => SIZE_ORDER.indexOf(a[0]) - SIZE_ORDER.indexOf(b[0])).forEach(([s, n]) => rows.push({ cat: CLAMP_CAT, def: clampDef(s), q: n }));
   return rows;
 }
 const fmtNum = (n, d = 2) => n.toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: d, maximumFractionDigits: d });
 function qtyOf(r, bars) {
   if (r.def.shape !== 'pipe') return { q: String(r.q), u: t('pcs'), extra: '' };
-  const m = r.q / 100, bar = r.def.pipe.bar;
-  return { q: fmtNum(m), u: 'm', extra: bars ? t('bars', { n: Math.ceil(m * 1.1 / bar - 1e-9), l: bar }) : '' };
+  const m = r.q / 100, bar = r.def.pipe.bar, need = m * 1.1, n = Math.ceil(need / bar - 1e-9), s = r.def.ports[0].t.s;
+  const roll = ROLLS[s] && need > 10 ? ROLLS[s].find((x) => x >= need) : null;
+  return { q: fmtNum(m), u: 'm', extra: bars ? LL(`+10 % = ${fmtNum(need)} m → ${n} Stange(n) à ${bar} m`, `+10 % = ${fmtNum(need)} m → ${n} bar(s) of ${bar} m`) + (roll ? LL(` oder 1 Rolle ${roll} m`, ` or 1 roll of ${roll} m`) : '') : '' };
 }
 function listTable(bars) {
   const rows = partsRows(); if (!rows.length) return `<p>${t('emptyList')}</p>`;
@@ -1029,11 +1036,12 @@ function listTable(bars) {
     + `<p class="aff aff-foot">* ${lang === 'de' ? 'Partnerlink (Anzeige): Kaufst du darüber, bekomme ich eine kleine Provision, für dich ändert sich der Preis nicht. Der Link führt zur Shop-Suche, bitte Größe und Ausführung vor dem Kauf prüfen.' : 'Affiliate link (ad): if you buy through it, I receive a small commission at no extra cost to you. The link opens the shop search, please check size and type before buying.'} <a href="#partnerlinks" data-legal="partnerlinks">${lang === 'de' ? 'Mehr zu Partnerlinks' : 'More about affiliate links'}</a></p>`;
 }
 function showList() {
-  const bars = localStorage.getItem('rp_bars') === '1';
-  openModal(t('partsList'), `<div class="row-actions"><button id="lCsv" class="primary">⬇ ${t('csv')}</button><button id="lPrint">🖨 ${t('print')}</button>
+  const bars = localStorage.getItem('rp_bars') !== '0';
+  openModal(t('partsList'), `<div class="row-actions"><button id="lShop" class="primary">🛒 ${LL('Einkaufsliste (1 Klick)', 'Shopping list (1 click)')}</button><button id="lCsv">⬇ ${t('csv')}</button><button id="lPrint">🖨 ${t('print')}</button>
     <label><input type="checkbox" id="lBars" ${bars ? 'checked' : ''}> ${t('barsOpt')}</label></div><div id="lTable">${listTable(bars)}</div><div class="disclaimer">${t('disclaimerLong')} <a href="#haftung" data-legal="haftung">${t('moreLegal')}</a></div>`);
   $('lBars').onchange = () => { localStorage.setItem('rp_bars', $('lBars').checked ? '1' : '0'); $('lTable').innerHTML = listTable($('lBars').checked); };
   $('lCsv').onclick = () => exportCSV($('lBars').checked);
+  $('lShop').onclick = showShop;
   $('lPrint').onclick = doPrint;
 }
 function csvText(bars) {
@@ -1061,7 +1069,7 @@ function drawingSVG() {
     + worldG.innerHTML.split('url(#braid)').join('url(#braidP)') + lens + '</svg>';
 }
 function buildPrint() {
-  const bars = localStorage.getItem('rp_bars') === '1';
+  const bars = localStorage.getItem('rp_bars') !== '0';
   const medName = { tw: t('medTw'), tww: t('medTww'), hz: t('medHz') }[proj.medium];
   $('printArea').innerHTML = `<h1>${esc(proj.name)}</h1><div class="meta">${t('medium')}: <b>${medName}</b> · ${t('date')}: ${new Date().toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB')} · Rohrplaner</div>`
     + drawingSVG() + `<h2>${t('partsHead')}</h2>` + listTable(bars) + `<h2>${t('hintsHead')}</h2>` + hintsHTML();
@@ -1074,9 +1082,11 @@ const savedAll = () => JSON.parse(localStorage.getItem('rp_projects') || '{}');
 function loadProject(p, msg = true) {
   let skipped = 0;
   const items = (p.items || []).filter((o) => { const ok = DEF[o.pid]; if (!ok) skipped++; return ok; });
-  proj = { v: 1, name: p.name || t('untitled'), medium: p.medium || 'tw', items, seq: p.seq || items.length + 1 };
+  proj = { v: 1, name: p.name || t('untitled'), medium: p.medium || 'tw', items, routes: Array.isArray(p.routes) ? p.routes : [], seq: p.seq || items.length + 1 };
+  (proj.routes || []).forEach((r) => { const n = +String(r.id).replace(/\D/g, ''); if (n >= proj.seq) proj.seq = n + 1; });
   proj.items.forEach((o) => { const n = +String(o.id).replace(/\D/g, ''); if (n >= proj.seq) proj.seq = n + 1; });
-  sel = null; activePort = null; drawPid = null; undoStack = []; redoStack = [];
+  sel = null; activePort = null; drawPid = null; undoStack = []; redoStack = []; if (typeof RU !== 'undefined') { RU.rid = null; RU.node = null; }
+  if (proj.routes.length) regenAll();
   changed(); fitView();
   if (skipped) toast(t('unknownParts', { n: skipped }), 'warn');
   else if (msg) toast(t('loaded', { name: proj.name }), 'ok', 1800);
@@ -1164,7 +1174,7 @@ $('libOpen').onclick = () => $('library').classList.add('open');
 $('libClose').onclick = closeLibMobile;
 $('projName').addEventListener('change', () => { pushUndo(); proj.name = $('projName').value.trim() || t('untitled'); changed(); });
 $('medium').addEventListener('change', () => {
-  pushUndo(); proj.medium = $('medium').value; changed();
+  pushUndo(); proj.medium = $('medium').value; regenAll(); changed();
   const H = computeHints().filter((h) => h.lvl !== 'info'); if (H.length) toast('⚠ ' + H[0].msg, 'warn', 5000);
 });
 $('btnLang').onclick = () => { lang = lang === 'de' ? 'en' : 'de'; localStorage.setItem('rp_lang', lang); applyLang(); };
@@ -1184,7 +1194,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'r' && !mod) rotateSel();
   else if (k === 'f' && !mod) flipSel();
   else if (k === 'delete' || k === 'backspace') { if (sel) { e.preventDefault(); delSel(); } }
-  else if (k === 'escape') { if (!$('modal').hidden) closeModal(); else if (drawPid) stopDraw(); else { sel = null; activePort = null; render(); updateUI(); } }
+  else if (k === 'escape') { if (!$('modal').hidden) closeModal(); else if (RU.on) stopRouteMode(); else if (drawPid) stopDraw(); else { sel = null; activePort = null; render(); updateUI(); } }
 });
 window.addEventListener('resize', () => renderOverlay());
 
@@ -1205,8 +1215,434 @@ function boot() {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
   }
 }
+/* ================================================================== Zeichenmodus (Leitung zeichnen, Fittinge automatisch) */
+const LL = (de, en) => (lang === 'de' ? de : en);
+const SYSTEMS = [
+  { id: 'mvs', cat: 'mvschraub', de: 'Alu-Verbund + Schraubfittinge', en: 'Multilayer + compression' },
+  { id: 'mvp', cat: 'mvpress', de: 'Alu-Verbund + Pressfittinge', en: 'Multilayer + press' },
+  { id: 'mvk', cat: 'mvsteck', de: 'Alu-Verbund + Steckfittinge', en: 'Multilayer + push-fit' },
+  { id: 'cup', cat: 'cupress', de: 'Kupfer + Pressfittinge', en: 'Copper + press' },
+  { id: 'cuk', cat: 'cuklemm', de: 'Kupfer + Klemmverschraubung', en: 'Copper + compression' },
+  { id: 'cul', cat: 'culoet', de: 'Kupfer + Lötfittinge', en: 'Copper + solder' },
+  { id: 'esp', cat: 'espress', de: 'Edelstahl + Pressfittinge', en: 'Stainless + press' },
+  { id: 'st', cat: 'tg', de: 'Stahlrohr verzinkt + Gewinde (Temperguss)', en: 'Galvanized steel + threaded' },
+];
+const SYS = Object.fromEntries(SYSTEMS.map((s) => [s.id, s]));
+const teq = (a, b) => a && b && a.k === b.k && a.s === b.s && (a.tech || '') === (b.tech || '');
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+const near = (a, b) => Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01;
+function fitT(sys, size) {
+  if (sys.id === 'st') return { k: 'ig', s: size };
+  for (const p of PARTS) if (p.cat === sys.cat) for (const q of p.ports) if (q.t.k === 'sock' && q.t.s === size) return { k: 'sock', s: size, tech: q.t.tech };
+  return null;
+}
+const pipeTOf = (sys, size) => (sys.id === 'st' ? { k: 'ag', s: size } : { k: 'pipe', s: size });
+const pipePidOf = (sys, size) => (PARTS.find((p) => p.cat === 'pipe' && teq(p.ports[0].t, pipeTOf(sys, size))) || {}).id;
+function findFit(sys, size, n, test) {
+  const ft = fitT(sys, size); if (!ft) return null;
+  const c = PARTS.filter((p) => p.cat === sys.cat && p.ports.length === n && p.ports.every((q) => teq(q.t, ft)) && test(p.ports.map((q) => q.d)));
+  return c.length ? c[0].id : null;
+}
+const elbowPid = (sys, size) => findFit(sys, size, 2, (d) => Math.abs(dot(d[0], d[1])) < 0.01);
+const teePid = (sys, size) => findFit(sys, size, 3, (d) => dot(d[0], d[1]) < -0.99 && Math.abs(dot(d[0], d[2])) < 0.01);
+const couplingPid = (sys, size) => findFit(sys, size, 2, (d) => dot(d[0], d[1]) < -0.99);
+function sysSizes(sys) { const s = new Set(); PARTS.forEach((p) => { if (p.cat === sys.cat) p.ports.forEach((q) => s.add(q.t.s)); }); return SIZE_ORDER.filter((z) => s.has(z) && elbowPid(sys, z) && pipePidOf(sys, z)); }
+const SYS_OPTS = []; SYSTEMS.forEach((s) => sysSizes(s).forEach((z) => SYS_OPTS.push({ sys: s.id, size: z })));
+/* Übergänge suchen (Breitensuche über gerade Zwei-Wege-Fittinge) */
+const ADP_CACHE = {};
+function adapters(sys) {
+  if (ADP_CACHE[sys.id]) return ADP_CACHE[sys.id];
+  const cats = [sys.cat, 'msgew'].concat(sys.id === 'st' ? [] : ['tg']);
+  const list = [];
+  cats.forEach((c) => PARTS.forEach((p) => { if (p.cat === c && p.ports.length === 2 && /^(fit|union)$/.test(p.shape) && !/-ln-/.test(p.id) && dot(p.ports[0].d, p.ports[1].d) < -0.99 && p.ports.every((q) => Math.abs(q.y) < 0.01)) list.push(p); }));
+  return (ADP_CACHE[sys.id] = list);
+}
+function chainSteps(sys, from, to) {
+  if (compat(from, to).ok) return [];
+  const seen = new Set([JSON.stringify(from)]); let fr = [{ open: from, steps: [] }];
+  for (let depth = 0; depth < 3; depth++) {
+    const nx = [];
+    for (const st of fr) for (const a of adapters(sys)) for (let i = 0; i < 2; i++) {
+      if (!compat(st.open, a.ports[i].t).ok) continue;
+      const open = a.ports[1 - i].t, steps = st.steps.concat([{ pid: a.id, i, o: 1 - i }]);
+      if (compat(open, to).ok) return steps;
+      const k = JSON.stringify(open); if (seen.has(k)) continue; seen.add(k); nx.push({ open, steps });
+    }
+    fr = nx;
+  }
+  return null;
+}
+function orient(pid, want) {
+  const ps = DEF[pid].ports;
+  for (const flip of [false, true]) for (let rot = 0; rot < 4; rot++)
+    if (want.every(([i, v]) => near(tf(ps[i].d[0], ps[i].d[1], rot, flip), v))) return { rot, flip };
+  return null;
+}
+const pinOf = (pid, i, o) => tf(DEF[pid].ports[i].x, DEF[pid].ports[i].y, o.rot, o.flip);
+const THR = { '3/8': '3/8', '1/2': '12', '3/4': '34', '1': '1' };
+const DN_THR = { 10: '3/8', 15: '1/2', 20: '3/4', 25: '1' };
+function variant(base, size) {
+  const want = DN_THR[SIZE_DN[size]] || '1/2', order = ['3/8', '1/2', '3/4', '1'];
+  const idx = order.indexOf(want), tries = [want].concat(order.slice(idx + 1), order.slice(0, idx).reverse());
+  for (const z of tries) if (DEF[base + '-' + THR[z]]) return base + '-' + THR[z];
+  return DEF[base] ? base : null;
+}
+const COMPS = [
+  { id: 'kh', kind: 'inline', de: 'Kugelhahn', en: 'Ball valve', pid: (s) => variant('kh', s) },
+  { id: 'ssv', kind: 'inline', de: 'Absperrventil (Schrägsitz)', en: 'Stop valve', pid: (s) => variant('ssv', s) },
+  { id: 'rv', kind: 'inline', de: 'Rückflussverhinderer', en: 'Check valve', pid: (s) => variant('rv', s) },
+  { id: 'ffil', kind: 'inline', de: 'Filter', en: 'Filter', pid: (s) => variant('ffil', s) },
+  { id: 'dmk', kind: 'inline', de: 'Druckminderer', en: 'Pressure reducer', pid: (s) => variant('dmk', s) },
+  { id: 'wz', kind: 'inline', de: 'Wasserzähler', en: 'Water meter', pid: (s) => (SIZE_DN[s] >= 20 ? 'wz-20' : 'wz-15') },
+  { id: 'kv', kind: 'inline', de: 'Kappenventil (Absperrung)', en: 'Cap valve', pid: (s) => variant('kv', s) },
+  { id: 'sg', kind: 'corner', de: 'Sicherheitsgruppe (nur an einer Ecke)', en: 'Safety group (corner only)', pid: () => 'sg-34' },
+  { id: 'tee', kind: 'branch', de: 'T-Stück (Abzweig 50 cm, offen)', en: 'T-piece (50 cm branch, open)', br: [] },
+  { id: 'teekh', kind: 'branch', de: 'T-Stück + Kugelhahn im Abzweig', en: 'T-piece + ball valve on branch', br: ['kh'] },
+  { id: 'kfe', kind: 'branch', de: 'Entleerung (T-Stück + KFE-Hahn)', en: 'Drain (T-piece + drain cock)', br: ['@kfe'] },
+  { id: 'mag', kind: 'branch', de: 'Ausdehnungsgefäß mit Kappenventil', en: 'Expansion vessel with cap valve', br: ['kv', '@vessel'] },
+  { id: 'mag0', kind: 'branch', de: 'Ausdehnungsgefäß ohne Absperrung', en: 'Expansion vessel without shut-off', br: ['@vessel'] },
+];
+const COMP = Object.fromEntries(COMPS.map((c) => [c.id, c]));
+const TERMS = [
+  { id: 'open', de: 'offenes Rohrende', en: 'open pipe end' },
+  ...['1/2', '3/4', '1'].flatMap((z) => [{ id: 'ig' + z, t: { k: 'ig', s: z }, de: `Anschluss mit Innengewinde ${zoll(z)}`, en: `${zoll(z)} female connection` },
+    { id: 'ag' + z, t: { k: 'ag', s: z }, de: `Anschluss mit Außengewinde ${zoll(z)}`, en: `${zoll(z)} male connection` }]),
+  { id: 'haus', dev: 'haus', t: { k: 'ag', s: '3/4' }, de: 'Hausanschluss / Wasserzähler (AG ¾″)', en: 'House connection / meter (¾″ M)' },
+  { id: 'ws', dev: 'ws', t: { k: 'ig', s: '3/4' }, de: 'Warmwasserspeicher Kaltwasser-Zulauf (IG ¾″)', en: 'Hot water tank cold inlet (¾″ F)' },
+  { id: 'wp', dev: 'wp', t: { k: 'ag', s: '1' }, de: 'Wärmepumpe (AG 1″)', en: 'Heat pump (1″ M)' },
+  { id: 'kessel', dev: 'kessel', t: { k: 'ag', s: '3/4' }, de: 'Heizkessel / Therme (AG ¾″)', en: 'Boiler (¾″ M)' },
+  { id: 'hk', dev: 'hk', t: { k: 'ag', s: '1/2' }, de: 'Heizkörper (AG ½″)', en: 'Radiator (½″ M)' },
+];
+const TERM = Object.fromEntries(TERMS.map((x) => [x.id, x]));
+const DEVN = { haus: ['Hausanschluss', 'House conn.'], ws: ['Speicher', 'Tank'], wp: ['Wärmepumpe', 'Heat pump'], kessel: ['Kessel', 'Boiler'], hk: ['Heizkörper', 'Radiator'] };
+const sgn = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+const uDir = (a, b) => [sgn(b.x - a.x), sgn(b.y - a.y)];
+
+function buildRoute(r) {
+  const sys = SYS[r.sys], size = r.size, out = [], warn = [], extra = new Map();
+  const addX = (pid, q) => { if (pid) extra.set(pid, (extra.get(pid) || 0) + q); };
+  const P = r.pts; r.gen = { warn, extra: [] };
+  if (!sys || P.length < 2) { r.gen.extra = []; return out; }
+  const pT = pipeTOf(sys, size), pPid = pipePidOf(sys, size), eP = elbowPid(sys, size), tP = teePid(sys, size);
+  const mk = (pid, pos, o) => { const it = makePart(pid, snap5(pos[0] * 100) / 100, pos[1], o.rot, o.flip); it.x = pos[0]; it.y = pos[1]; it.gen = r.id; out.push(it); return it; };
+  let pipeStart = null;
+  const pipeTo = (pos, n) => {
+    if (pipeStart && dist(pipeStart, pos) > 0.04) {
+      const back = (pos[0] - pipeStart[0]) * (n ? n[0] : 0) + (pos[1] - pipeStart[1]) * (n ? n[1] : 0) < -0.01;
+      if (back) warn.push(LL('Zu wenig Platz für die Fittinge – Abschnitt verlängern', 'Not enough room for fittings – make the section longer'));
+      else { const p = makePipe(pPid, pipeStart.slice(), pos.slice()); p.gen = r.id; out.push(p); }
+    }
+    else if (pipeStart) warn.push(LL('Zwei Fittinge direkt aneinander – Abstand vergrößern, damit ein Stück Rohr dazwischen passt', 'Two fittings touch – leave room for a pipe piece'));
+    pipeStart = null;
+  };
+  // gerade Kette entlang dir ab pos platzieren, gibt Endposition zurück
+  const stepLen = (st, dir) => { const o = orient(st.pid, [[st.i, [-dir[0], -dir[1]]], [st.o, dir]]); if (!o) return null; const a = pinOf(st.pid, st.i, o), b = pinOf(st.pid, st.o, o); return { o, a, b, len: dot([b[0] - a[0], b[1] - a[1]], dir) }; };
+  const chainLen = (steps, dir) => steps.reduce((s, st) => s + ((stepLen(st, dir) || { len: 0 }).len), 0);
+  const placeChain = (steps, pos, dir) => {
+    let cur = pos.slice();
+    steps.forEach((st) => { const g = stepLen(st, dir); if (!g) return; const c = [cur[0] - g.a[0], cur[1] - g.a[1]]; mk(st.pid, c, g.o); cur = [c[0] + g.b[0], c[1] + g.b[1]]; });
+    return cur;
+  };
+  const compSteps = (pid) => { const ps = DEF[pid].ports; const a = chainSteps(sys, pT, ps[0].t), b = chainSteps(sys, ps[1].t, pT); return a && b ? a.concat([{ pid, i: 0, o: 1 }], b) : null; };
+  const nodeName = (i) => LL('Punkt ', 'point ') + (i + 1);
+  // Start
+  const u0 = uDir(P[0], P[1]), st0 = r.start === 'port' && r.from ? { t: r.from.t } : TERM[r.start] || TERM.open;
+  if (st0.t) { const ch = chainSteps(sys, st0.t, pT); if (ch) pipeStart = placeChain(ch, [P[0].x, P[0].y], u0); else { warn.push(LL('Kein passender Übergang am Start gefunden', 'No matching adapter at start')); pipeStart = [P[0].x, P[0].y]; } }
+  else pipeStart = [P[0].x, P[0].y];
+  for (let i = 1; i < P.length; i++) {
+    const n = P[i], np = [n.x, n.y], uin = uDir(P[i - 1], n), last = i === P.length - 1;
+    const dh = (n.h || 0) - (P[i - 1].h || 0);
+    if (last) {
+      if (dh) { addX(eP, 1); addX(pPid, Math.abs(dh)); }
+      const te = TERM[r.end] || TERM.open;
+      if (te.t) {
+        const ch = chainSteps(sys, pT, te.t);
+        if (ch) { const L = chainLen(ch, uin), s0 = [np[0] - uin[0] * L, np[1] - uin[1] * L]; pipeTo(s0, uin); placeChain(ch, s0, uin); }
+        else { warn.push(LL('Kein passender Übergang am Ende gefunden', 'No matching adapter at end')); pipeTo(np, uin); }
+      } else pipeTo(np, uin);
+      break;
+    }
+    const uout = uDir(n, P[i + 1]), straight = near(uin, uout), comp = COMP[n.comp];
+    if (dot(uin, uout) < -0.5) { warn.push(nodeName(i) + ': ' + LL('Leitung läuft zurück', 'route reverses')); }
+    if (dh) { addX(eP, straight ? 2 : 1); addX(pPid, Math.abs(dh)); }
+    if (comp && comp.kind === 'corner' && !straight) {
+      const pid = comp.pid(size), o = orient(pid, [[0, [-uin[0], -uin[1]]], [1, uout]]);
+      const a = chainSteps(sys, pT, DEF[pid].ports[0].t), b = chainSteps(sys, DEF[pid].ports[1].t, pT);
+      if (o && a && b) {
+        const pin = pinOf(pid, 0, o), pout = pinOf(pid, 1, o), pi = dot(pin, uout), po = dot(pout, uin);
+        const c = [np[0] - uout[0] * pi - uin[0] * po, np[1] - uout[1] * pi - uin[1] * po];
+        const inPos = [c[0] + pin[0], c[1] + pin[1]], L = chainLen(a, uin), s0 = [inPos[0] - uin[0] * L, inPos[1] - uin[1] * L];
+        pipeTo(s0, uin); placeChain(a, s0, uin); mk(pid, c, o);
+        pipeStart = placeChain(b, [c[0] + pout[0], c[1] + pout[1]], uout); continue;
+      }
+      warn.push(nodeName(i) + ': ' + LL('Sicherheitsgruppe passt hier nicht', 'safety group does not fit here'));
+    } else if (comp && comp.kind === 'corner') warn.push(nodeName(i) + ': ' + LL('Sicherheitsgruppe braucht eine Ecke (Eingang seitlich, Ausgang nach oben/vorne)', 'safety group needs a corner'));
+    if (comp && comp.kind !== 'corner' && !straight) warn.push(nodeName(i) + ': ' + LL(nm(comp) + ' geht nicht an einer Ecke – auf ein gerades Stück setzen', nm(comp) + ' cannot sit on a corner'));
+    if (!straight) {
+      const o = orient(eP, [[0, [-uin[0], -uin[1]]], [1, uout]]);
+      pipeTo([np[0] - uin[0] * 0.5, np[1] - uin[1] * 0.5], uin); mk(eP, np, o); pipeStart = [np[0] + uout[0] * 0.5, np[1] + uout[1] * 0.5]; continue;
+    }
+    if (!comp || comp.kind === 'corner') continue;
+    if (comp.kind === 'inline') {
+      const pid = comp.pid(size), steps = pid && compSteps(pid);
+      if (!steps) { warn.push(nodeName(i) + ': ' + LL('kein passender Übergang für ', 'no adapter for ') + nm(comp)); continue; }
+      const L = chainLen(steps, uin), s0 = [np[0] - uin[0] * L / 2, np[1] - uin[1] * L / 2];
+      pipeTo(s0, uin); pipeStart = placeChain(steps, s0, uin); continue;
+    }
+    // Abzweig
+    const side = n.side === -1 ? [uin[1], -uin[0]] : [-uin[1], uin[0]];
+    const o = orient(tP, [[0, [-uin[0], -uin[1]]], [1, uin], [2, side]]);
+    if (!tP || !o) { warn.push(nodeName(i) + ': ' + LL('kein T-Stück im System', 'no tee in system')); continue; }
+    pipeTo([np[0] - uin[0] * 0.5, np[1] - uin[1] * 0.5], uin); mk(tP, np, o); pipeStart = [np[0] + uin[0] * 0.5, np[1] + uin[1] * 0.5];
+    const save = pipeStart; let bp = [np[0] + side[0] * 0.5, np[1] + side[1] * 0.5];
+    const brParts = comp.br.map((b) => (b === '@vessel' ? (proj.medium === 'hz' ? 'mag-34' : 'mdb-34') : b === '@kfe' ? variant('kfe', size) : COMP[b].pid(size)));
+    if (!brParts.length && n.noStub) { pipeStart = save; continue; }
+    pipeStart = bp; let pos = [bp[0] + side[0] * (brParts.length ? 3 : 5), bp[1] + side[1] * (brParts.length ? 3 : 5)];
+    pipeTo(pos, side); if (!brParts.length && out.length && out[out.length - 1].type === 'pipe') out[out.length - 1].stub = { rid: r.id, i };
+    let open = pT, okB = true;
+    for (const pid of brParts) {
+      const ps = DEF[pid].ports, ch = chainSteps(sys, open, ps[0].t);
+      if (!ch) { okB = false; break; }
+      pos = placeChain(ch, pos, side);
+      if (ps.length === 1) { const oo = orient(pid, [[0, [-side[0], -side[1]]]]); const pn = pinOf(pid, 0, oo); mk(pid, [pos[0] - pn[0], pos[1] - pn[1]], oo); open = null; break; }
+      pos = placeChain([{ pid, i: 0, o: 1 }], pos, side); open = ps[1].t;
+    }
+    if (!okB) warn.push(nodeName(i) + ': ' + LL('Abzweig-Teil passt nicht ohne Übergang', 'branch part has no adapter'));
+    pipeStart = save;
+  }
+  r.gen.extra = [...extra.entries()];
+  return out;
+}
+function regenRoute(r) { proj.items = proj.items.filter((o) => o.gen !== r.id).concat(buildRoute(r)); }
+function regenAll() { (proj.routes || []).forEach(regenRoute); }
+
+/* ---------- Rohrschellen & Längen ---------- */
+const CLAMP_CM = { MV16: 50, MV20: 60, MV26: 70, MV32: 80 };
+const CLAMP_MM = { '1/2': 21, '3/4': 27, '1': 34 };
+const clampDef = (s) => {
+  const mm = isSys(s) ? +s.slice(2) : CLAMP_MM[s], id = 'schelle-' + s.replace('/', '');
+  if (!DEF[id]) { DEF[id] = { id, virtual: true, cat: 'clamp', shape: 'clamp', mat: 'st', ports: [], de: `Rohrschelle ${mm} mm`, en: `Pipe clamp ${mm} mm`,
+    desc: { de: `für Rohr ${sizeLabel(s)}, Abstand ca. ${CLAMP_CM[s] || 80} cm, automatisch gezählt`, en: `for ${sizeLabel(s)} pipe, approx. every ${CLAMP_CM[s] || 80} cm, counted automatically` } };
+    SHOP_Q[id] = `Rohrschelle ${mm} mm`; }
+  return DEF[id];
+};
+const CLAMP_CAT = { id: 'clamp', de: 'Befestigung (automatisch)', en: 'Fixing (automatic)' };
+function clampCounts(pipeCm) {
+  const m = new Map();
+  pipeCm.forEach(([pid, cm]) => { const s = DEF[pid].ports[0].t.s, sp = CLAMP_CM[s] || 80; if (cm < 20) return; m.set(s, (m.get(s) || 0) + Math.max(1, Math.ceil(cm / sp))); });
+  return m;
+}
+const ROLLS = { MV16: [50, 100, 200], MV20: [50, 100], MV26: [25, 50], MV32: [25, 50] };
+
+/* ---------- Prüfungen ---------- */
+const SHUT = /^(kv|kh|khrv|ssv|ksg)-/;
+function routeHints() {
+  const H = [], med = proj.medium;
+  (proj.routes || []).forEach((r, ri) => (r.gen ? r.gen.warn : []).forEach((w) => H.push({ lvl: 'warn', msg: LL('Leitung ', 'Route ') + (ri + 1) + ': ' + w })));
+  const ids = proj.items.map((o) => o.pid), has = (re) => ids.some((x) => re.test(x));
+  const devs = new Set(); (proj.routes || []).forEach((r) => [r.start, r.end].forEach((e) => TERM[e] && TERM[e].dev && devs.add(TERM[e].dev)));
+  if (med !== 'hz' && (devs.has('ws') || devs.has('wp')) && !has(/^sg-/)) H.push({ lvl: 'bad', msg: LL('Vor dem Warmwasserspeicher/der Wärmepumpe (Trinkwasser) fehlt die Sicherheitsgruppe (Sicherheitsventil + Rückflussverhinderer + Absperrung). Pflicht nach DIN 1988!', 'Safety group missing before the hot water tank / heat pump (drinking water).') });
+  if (med === 'hz' && (devs.has('wp') || devs.has('kessel'))) {
+    if (!has(/^sv-hz/)) H.push({ lvl: 'warn', msg: LL('Heizung mit Wärmeerzeuger: Sicherheitsventil (3 bar) einplanen.', 'Heating with heat source: add a safety valve (3 bar).') });
+    if (!has(/^(mag|mdb)-/)) H.push({ lvl: 'warn', msg: LL('Heizung: Ausdehnungsgefäß (MAG) fehlt.', 'Heating: expansion vessel missing.') });
+  }
+  if (med !== 'hz' && devs.has('haus') && !has(/^(ffil|hws|rsf)-/)) H.push({ lvl: 'warn', msg: LL('Nach dem Hausanschluss/Wasserzähler gehört ein Filter (Pflicht nach DIN 1988-200).', 'A filter is required after the house connection/meter.') });
+  // Ausdehnungsgefäß ohne Absperrung? (Verbindungen bis zum nächsten Abzweig verfolgen)
+  const adj = new Map(); A.conns.filter((c) => c.ok).forEach((c) => { [[c.p1.obj, c.p2.obj], [c.p2.obj, c.p1.obj]].forEach(([a, b]) => (adj.get(a.id) || adj.set(a.id, []).get(a.id)).push(b)); });
+  proj.items.filter((o) => /^(mag|mdb)-/.test(o.pid)).forEach((v) => {
+    let cur = [v], seen = new Set([v.id]), ok = false;
+    for (let d = 0; d < 8 && cur.length && !ok; d++) {
+      const nx = [];
+      cur.forEach((o) => (adj.get(o.id) || []).forEach((b) => { if (seen.has(b.id)) return; seen.add(b.id); if (SHUT.test(b.pid)) ok = true; else if (b.type === 'pipe' || DEF[b.pid].ports.length === 2) nx.push(b); }));
+      cur = nx;
+    }
+    if (!ok) H.push({ lvl: 'warn', msg: LL('Vor dem Ausdehnungsgefäß fehlt eine Absperrung (Kappenventil), sonst kann es nicht gewartet werden.', 'Shut-off (cap valve) missing before the expansion vessel.') });
+  });
+  return H;
+}
+
+/* ---------- Zustand & UI ---------- */
+const RU = { on: false, rid: null, node: null, sys: localStorage.getItem('rp_rsys') || 'mvs|MV20', h: 0 };
+const curRoute = () => (proj.routes || []).find((r) => r.id === RU.rid) || null;
+function routeEdit(fn) { pushUndo(); fn(); const r = curRoute(); if (r) regenRoute(r); changed(); routePanel(); }
+function startRouteMode() { stopDraw(); RU.on = true; sel = null; if (!curRoute()) RU.rid = null; RU.node = null; $('routePanel').hidden = false; closeLibMobile(); render(); updateUI(); routePanel(); toast(LL('Zeichnen: Tippe den Startpunkt, dann die Ecken und den Endpunkt.', 'Draw: tap the start point, then corners and end point.'), 'ok', 4000); }
+function stopRouteMode() { RU.on = false; RU.node = null; $('routePanel').hidden = true; render(); updateUI(); }
+const optHTML = (arr, val, lab) => arr.map((x) => `<option value="${esc(x.v)}" ${x.v === val ? 'selected' : ''}>${esc(lab(x))}</option>`).join('');
+function routePanel() {
+  const r = curRoute(), el = $('routePanel'); if (!RU.on) return;
+  const sv = r ? r.sys + '|' + r.size : RU.sys;
+  const sysSel = optHTML(SYS_OPTS.map((o) => ({ v: o.sys + '|' + o.size, o })), sv, (x) => nm(SYS[x.o.sys]) + ' · ' + sizeLabel(x.o.size) + (x.o.sys.startsWith('mv') ? ' (' + ({ MV16: '16×2', MV20: '20×2', MV26: '26×3', MV32: '32×3' }[x.o.size]) + ')' : ''));
+  const tOpts = (v) => optHTML(TERMS.map((x) => ({ v: x.id, x })), v, (x) => nm(x.x));
+  const nd = r && RU.node != null ? r.pts[RU.node] : null;
+  const compOpts = `<option value="">${LL('– nichts –', '– none –')}</option>` + COMPS.map((c) => `<option value="${c.id}" ${nd && nd.comp === c.id ? 'selected' : ''}>${esc(nm(c))}</option>`).join('');
+  el.innerHTML = `<div class="rp-row"><button id="rMin" class="small" title="${LL('Ein-/ausklappen', 'Collapse')}">${RU.min ? '▸' : '▾'}</button><b>✏️ ${LL('Leitung zeichnen', 'Draw route')}</b>
+    <label>${LL('System', 'System')} <select id="rSys">${sysSel}</select></label>
+    <label>${LL('Start', 'Start')} ${r && r.start === 'port' ? `<select id="rStart" disabled><option>${LL('Anschluss am Teil', 'Port of part')}: ${esc(fmtPort(r.from.t))}</option></select>` : `<select id="rStart">${tOpts(r ? r.start : 'open')}</select>`}</label>
+    <label>${LL('Ende', 'End')} <select id="rEnd">${tOpts(r ? r.end : 'open')}</select></label></div>
+    <div class="rp-row"><label>${LL('Höhe neuer Punkte', 'Height of new points')} <input id="rH" type="number" step="5" value="${RU.h}" inputmode="numeric"> cm</label>
+    <label>${LL('Einfügen', 'Insert')} <select id="rIns">${'<option value="">' + LL('– Punkte setzen –', '– add points –') + '</option>' + COMPS.map((c) => `<option value="${c.id}" ${RU.ins === c.id ? 'selected' : ''}>${esc(nm(c))}</option>`).join('')}</select></label>
+    <span class="rp-tip">${!RU.ins && A.free.length ? '<span class="rp-plus">＋</span> ' + LL('= offener Anschluss: antippen zum Weiterzeichnen · ', '= open port: tap to continue · ') : ''}${RU.ins ? LL('Tippe auf die Leitung, wo das Teil hin soll', 'Tap the route where the part goes') : r ? LL('Tippe den nächsten Punkt · Punkt antippen = bearbeiten', 'Tap next point · tap a point to edit') : LL('Tippe den Startpunkt', 'Tap the start point')}</span></div>
+    ${nd ? `<div class="rp-row rp-node"><b>${LL('Punkt', 'Point')} ${RU.node + 1}</b>
+      <label>${LL('Höhe', 'Height')} <input id="nH" type="number" step="5" value="${nd.h || 0}" inputmode="numeric"> cm</label>
+      ${RU.node > 0 && RU.node < r.pts.length - 1 ? `<label>${LL('Teil', 'Part')} <select id="nComp">${compOpts}</select></label>` : ''}
+      ${nd.comp && COMP[nd.comp].kind === 'branch' ? `<button id="nSide">⇆ ${LL('Seite', 'Side')}</button>` : ''}
+      <button id="nDel" class="danger">🗑 ${LL('Punkt', 'Point')}</button><button id="nClose">✕</button></div>` : ''}
+    <div class="rp-row"><button id="rBack" ${r ? '' : 'disabled'}>↶ ${LL('Letzter Punkt', 'Last point')}</button>
+    <button id="rSide">↕ ${LL('Seitenansicht', 'Side view')}</button><button id="rNew">＋ ${LL('Neue Leitung', 'New route')}</button>
+    <button id="rDelR" class="danger" ${r ? '' : 'disabled'}>🗑 ${LL('Leitung', 'Route')}</button><button id="rDone" class="primary">${LL('Fertig', 'Done')}</button></div>`;
+  $('rSys').onchange = () => { RU.sys = $('rSys').value; localStorage.setItem('rp_rsys', RU.sys); if (r) routeEdit(() => { [r.sys, r.size] = RU.sys.split('|'); }); };
+  $('rStart').onchange = () => { RU.start = $('rStart').value; if (r) routeEdit(() => (r.start = RU.start)); };
+  $('rEnd').onchange = () => { RU.end = $('rEnd').value; if (r) routeEdit(() => (r.end = RU.end)); };
+  $('rH').onchange = () => { RU.h = +$('rH').value || 0; };
+  $('rIns').onchange = () => { RU.ins = $('rIns').value; routePanel(); renderOverlay(); };
+  $('rBack').onclick = () => { if (!r) return; if (r.pts.length <= 1) { routeEdit(() => delRoute(r)); return; } routeEdit(() => r.pts.pop()); RU.node = null; routePanel(); };
+  $('rSide').onclick = showSideView;
+  $('rNew').onclick = () => { RU.rid = null; RU.node = null; routePanel(); renderOverlay(); toast(LL('Tippe den Startpunkt der neuen Leitung', 'Tap the start of the new route'), '', 2500); };
+  $('rDelR').onclick = () => { if (r && confirm(LL('Diese Leitung mit allen automatischen Teilen löschen?', 'Delete this route and its parts?'))) routeEdit(() => delRoute(r)); };
+  $('rDone').onclick = stopRouteMode;
+  el.classList.toggle('min', !!RU.min); $('rMin').onclick = () => { RU.min = !RU.min; routePanel(); };
+  if (nd) {
+    $('nH').onchange = () => routeEdit(() => (nd.h = +$('nH').value || 0));
+    if ($('nComp')) $('nComp').onchange = () => routeEdit(() => { nd.comp = $('nComp').value || null; });
+    if ($('nSide')) $('nSide').onclick = () => routeEdit(() => (nd.side = nd.side === -1 ? 1 : -1));
+    $('nClose').onclick = () => { RU.node = null; routePanel(); renderOverlay(); };
+    $('nDel').onclick = () => {
+      const i = RU.node, a = r.pts[i - 1], b = r.pts[i + 1];
+      if (a && b && a.x !== b.x && a.y !== b.y) { toast(LL('Eckpunkt kann nicht gelöscht werden – zuerst die folgenden Punkte entfernen', 'Corner cannot be deleted'), 'warn'); return; }
+      RU.node = null; routeEdit(() => { r.pts.splice(i, 1); if (r.pts.length < 1) delRoute(r); });
+    };
+  }
+}
+function delRoute(r) { proj.items = proj.items.filter((o) => o.gen !== r.id); proj.routes = proj.routes.filter((x) => x !== r); RU.rid = null; RU.node = null; }
+function segHit(r, w) {
+  for (let i = 1; i < r.pts.length; i++) {
+    const a = r.pts[i - 1], b = r.pts[i];
+    if (a.y === b.y && Math.abs(w[1] - a.y) < 0.7 && w[0] > Math.min(a.x, b.x) + 0.6 && w[0] < Math.max(a.x, b.x) - 0.6) return { i, p: { x: Math.round(w[0]), y: a.y } };
+    if (a.x === b.x && Math.abs(w[0] - a.x) < 0.7 && w[1] > Math.min(a.y, b.y) + 0.6 && w[1] < Math.max(a.y, b.y) - 0.6) return { i, p: { x: a.x, y: Math.round(w[1]) } };
+  }
+  return null;
+}
+function portSys(p) {
+  const t0 = p.t, def = DEF[p.obj.pid], [cs, cz] = RU.sys.split('|');
+  if (t0.k === 'sock') { const sy = SYSTEMS.find((x) => x.cat === def.cat && teq(fitT(x, t0.s), t0)) || SYSTEMS.find((x) => teq(fitT(x, t0.s), t0)); if (sy) return [sy.id, t0.s]; }
+  if (t0.k === 'pipe') { const pre = t0.s.slice(0, 2), sy = pre === 'MV' ? (cs.startsWith('mv') ? cs : 'mvs') : pre === 'CU' ? (cs.startsWith('cu') ? cs : 'cup') : 'esp'; if (SYS_OPTS.some((o) => o.sys === sy && o.size === t0.s)) return [sy, t0.s]; }
+  if (t0.k === 'ag' && def.cat === 'pipe') return ['st', t0.s];
+  return [cs, cz];
+}
+function startFromPort(p) {
+  if (Math.abs(p.d[0]) > 0.01 && Math.abs(p.d[1]) > 0.01) { toast(LL('Schräger Anschluss (45°) – bitte zuerst einen Winkel anstecken', 'Angled port (45°) – attach an elbow first'), 'warn'); return; }
+  pushUndo();
+  let pos = p.pos.slice(), d = p.d.map(Math.round), t0 = p.t, [sy, sz] = portSys(p);
+  if (p.obj.stub) { const pr = (proj.routes || []).find((x) => x.id === p.obj.stub.rid), nd = pr && pr.pts[p.obj.stub.i];
+    if (nd) { nd.noStub = true; regenRoute(pr); const L = dist(p.obj.a, p.obj.b); pos = [p.pos[0] - d[0] * L, p.pos[1] - d[1] * L]; t0 = fitT(SYS[pr.sys], pr.size); sy = pr.sys; sz = pr.size; } }
+  const r = { id: 'r' + (proj.seq++), sys: sy, size: sz, start: 'port', from: { pos, d, t: t0 }, end: 'open', pts: [{ x: pos[0], y: pos[1], h: RU.h }] };
+  (proj.routes = proj.routes || []).push(r); RU.rid = r.id; RU.node = null; RU.ins = ''; regenRoute(r); changed(); routePanel();
+  toast(LL('Weiterzeichnen ab ', 'Continue from ') + fmtPort(t0) + LL(' – tippe den nächsten Punkt in Anschlussrichtung', ' – tap the next point in port direction'), 'ok', 4000);
+}
+function routeTap(w) {
+  let r = curRoute();
+  if (!RU.ins) { const fp = A.free.filter((p) => dist(p.pos, w) < 0.5).sort((a, b) => dist(a.pos, w) - dist(b.pos, w))[0];
+    if (fp) { const own = (proj.routes || []).find((x) => { const l = x.pts[x.pts.length - 1]; return x.pts.length > 1 && (x.end || 'open') === 'open' && Math.hypot(l.x - fp.pos[0], l.y - fp.pos[1]) < 0.3; });
+      if (own) { RU.rid = own.id; RU.node = null; routePanel(); renderOverlay(); toast(LL('Leitung wird verlängert – tippe den nächsten Punkt', 'Extending route – tap next point'), 'ok', 2500); return; }
+      startFromPort(fp); return; } }
+  // Punkt einer Leitung antippen
+  for (const rr of proj.routes || []) { const k = rr.pts.findIndex((p) => Math.hypot(p.x - w[0], p.y - w[1]) < 0.6); if (k >= 0) { RU.rid = rr.id; RU.node = k; routePanel(); renderOverlay(); return; } }
+  if (RU.ins) {
+    for (const rr of proj.routes || []) { const h = segHit(rr, w); if (h) {
+      RU.rid = rr.id; const ins = RU.ins, prev = rr.pts[h.i - 1];
+      routeEdit(() => rr.pts.splice(h.i, 0, { x: h.p.x, y: h.p.y, h: prev.h || 0, comp: ins, side: 1 }));
+      RU.node = h.i; RU.ins = ''; routePanel(); renderOverlay(); toast(LL('Eingefügt: ', 'Inserted: ') + nm(COMP[ins]), 'ok', 1800); return; } }
+    toast(LL('Tippe genau auf eine gerade Leitung', 'Tap on a straight section of the route'), 'warn'); return;
+  }
+  RU.node = null;
+  if (!r) {
+    const [s, z] = RU.sys.split('|');
+    r = { id: 'r' + (proj.seq++), sys: s, size: z, start: RU.start || 'open', end: RU.end || 'open', pts: [{ x: Math.round(w[0]), y: Math.round(w[1]), h: RU.h }] };
+    pushUndo(); (proj.routes = proj.routes || []).push(r); RU.rid = r.id; changed(); routePanel(); return;
+  }
+  const lp = r.pts[r.pts.length - 1], dx = w[0] - lp.x, dy = w[1] - lp.y;
+  let np = Math.abs(dx) >= Math.abs(dy) ? { x: Math.round(w[0]), y: lp.y } : { x: lp.x, y: Math.round(w[1]) };
+  if (r.start === 'port' && r.from && r.pts.length === 1) { const d = r.from.d, L = Math.round(dx * d[0] + dy * d[1]);
+    if (L < 2) { toast(LL('Die erste Strecke muss vom Anschluss weg zeigen (mind. 20 cm)', 'First section must lead away from the port (min. 20 cm)'), 'warn'); return; }
+    np = { x: lp.x + d[0] * L, y: lp.y + d[1] * L }; }
+  if (Math.hypot(np.x - lp.x, np.y - lp.y) < 2) { toast(LL('Mindestens 20 cm Abstand zum letzten Punkt', 'At least 20 cm from the last point'), 'warn', 1800); return; }
+  if (r.pts.length >= 2) { const pp = r.pts[r.pts.length - 2], u = uDir(pp, lp), v = uDir(lp, np); if (dot(u, v) < -0.5) { toast(LL('Leitung kann nicht zurücklaufen', 'Route cannot reverse'), 'warn'); return; }
+    if (near(u, v) && !lp.comp && (lp.h || 0) === (pp.h || 0) && r.pts.length >= 2 && (lp.h || 0) === RU.h) { routeEdit(() => { lp.x = np.x; lp.y = np.y; }); return; } }
+  routeEdit(() => r.pts.push({ x: np.x, y: np.y, h: RU.h }));
+}
+// Zeiger im Zeichenmodus (eigene Behandlung: tippen = Punkt, ziehen = verschieben der Ansicht)
+let rp = null;
+svg.addEventListener('pointerdown', (e) => {
+  if (!RU.on) return;
+  e.stopImmediatePropagation();
+  if (e.button > 0) return;
+  svg.setPointerCapture(e.pointerId);
+  rp = { id: e.pointerId, sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false };
+}, true);
+svg.addEventListener('pointermove', (e) => {
+  if (!RU.on) return; e.stopImmediatePropagation();
+  if (!rp || rp.id !== e.pointerId) { const r = curRoute(); if (r && r.pts.length && !RU.ins && e.pointerType === 'mouse') { RU.hover = toWorld(e); renderOverlay(); } return; }
+  if (Math.hypot(e.clientX - rp.sx, e.clientY - rp.sy) > 7) rp.moved = true;
+  if (rp.moved) { view.x = rp.vx + e.clientX - rp.sx; view.y = rp.vy + e.clientY - rp.sy; applyView(); }
+}, true);
+const rpUp = (e) => { if (!RU.on) return; e.stopImmediatePropagation(); if (!rp || rp.id !== e.pointerId) return; const d = rp; rp = null; if (!d.moved && e.type === 'pointerup') routeTap(toWorld(e)); };
+svg.addEventListener('pointerup', rpUp, true); svg.addEventListener('pointercancel', rpUp, true);
+
+function routeOverlay(f) {
+  let s = '';
+  if (RU.on && !RU.ins) A.free.forEach((p) => { const x = p.pos[0] * C, y = p.pos[1] * C;
+    s += `<g pointer-events="none" class="cont-port"><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(13 * f)}" fill="#1a9e4b" opacity=".22"/><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(8.5 * f)}" fill="#1a9e4b" stroke="#fff" stroke-width="${f1(2 * f)}"/><path d="M${f1(x - 4.5 * f)} ${f1(y)}H${f1(x + 4.5 * f)}M${f1(x)} ${f1(y - 4.5 * f)}V${f1(y + 4.5 * f)}" stroke="#fff" stroke-width="${f1(2.2 * f)}"/></g>`; });
+  (proj.routes || []).forEach((r) => {
+    const act = RU.on && r.id === RU.rid;
+    if (RU.on) {
+      s += `<polyline points="${r.pts.map((p) => f1(p.x * C) + ',' + f1(p.y * C)).join(' ')}" fill="none" stroke="${act ? '#1f6feb' : '#8aa0c0'}" stroke-width="${f1(3 * f)}" stroke-dasharray="${f1(8 * f)} ${f1(6 * f)}" opacity=".7" pointer-events="none"/>`;
+      r.pts.forEach((p, i) => { const on = act && RU.node === i;
+        s += `<circle cx="${f1(p.x * C)}" cy="${f1(p.y * C)}" r="${f1((on ? 11 : 8) * f)}" fill="${on ? '#1f6feb' : '#fff'}" stroke="#1f6feb" stroke-width="${f1(2.5 * f)}" pointer-events="none"/><text x="${f1(p.x * C)}" y="${f1(p.y * C + 3.8 * f)}" text-anchor="middle" style="font:800 ${f1(10 * f)}px system-ui" fill="${on ? '#fff' : '#1f6feb'}" pointer-events="none">${i + 1}</text>`; });
+      if (act && RU.hover && !RU.ins && r.pts.length) { const lp = r.pts[r.pts.length - 1], w = RU.hover, dx = w[0] - lp.x, dy = w[1] - lp.y, np = Math.abs(dx) >= Math.abs(dy) ? [Math.round(w[0]), lp.y] : [lp.x, Math.round(w[1])];
+        s += ln(lp.x * C, lp.y * C, np[0] * C, np[1] * C, '#1f6feb', 3 * f, 'opacity=".5" pointer-events="none"') + pill((lp.x + np[0]) / 2 * C, (lp.y + np[1]) / 2 * C - 18 * f, Math.round(Math.hypot(np[0] - lp.x, np[1] - lp.y) * CM) + ' cm', '#1f6feb', '#fff'); }
+    }
+    r.pts.forEach((p, i) => { if (!i) return; const dh = (p.h || 0) - (r.pts[i - 1].h || 0); if (dh) s += pill(p.x * C + 26 * f, p.y * C + 24 * f, (dh > 0 ? '↑ +' : '↓ ') + dh + ' cm', '#fff4d6', '#7a4b00'); });
+    [[r.start, 0], [r.end, r.pts.length - 1]].forEach(([tid, i]) => { const T = TERM[tid]; if (!T || !T.dev || !r.pts[i] || r.pts.length < 2) return; const p = r.pts[i];
+      const u = i ? uDir(r.pts[i - 1], p) : uDir(r.pts[1], p), cx = p.x * C + u[0] * 52, cy = p.y * C + u[1] * 52;
+      s += `<g pointer-events="none"><rect x="${f1(cx - 40)}" y="${f1(cy - 16)}" width="80" height="32" rx="6" fill="#e8eef9" stroke="#4a5d7a" stroke-width="2" stroke-dasharray="5 3"/><text x="${f1(cx)}" y="${f1(cy + 4)}" text-anchor="middle" style="font:700 11px system-ui" fill="#24364f">${esc(LL(...DEVN[T.dev]))}</text></g>`; });
+  });
+  return s;
+}
+function sideViewSVG() {
+  const R = proj.routes || []; if (!R.length) return `<p>${LL('Noch keine gezeichnete Leitung.', 'No drawn route yet.')}</p>`;
+  return R.map((r, ri) => {
+    let x = 0; const pts = [[0, r.pts[0].h || 0]], marks = [];
+    for (let i = 1; i < r.pts.length; i++) { x += Math.hypot(r.pts[i].x - r.pts[i - 1].x, r.pts[i].y - r.pts[i - 1].y) * CM; pts.push([x, r.pts[i - 1].h || 0]); pts.push([x, r.pts[i].h || 0]); marks.push([x, r.pts[i].h || 0, i, r.pts[i].comp]); }
+    const hs = pts.map((p) => p[1]), h0 = Math.min(0, ...hs), h1 = Math.max(50, ...hs), W = 640, H = 200, sx = (W - 80) / Math.max(x, 1), sy = (H - 60) / (h1 - h0 || 1);
+    const X = (v) => 50 + v * sx, Y = (v) => H - 30 - (v - h0) * sy;
+    return `<h3>${LL('Leitung', 'Route')} ${ri + 1} · ${esc(nm(SYS[r.sys]))} ${esc(sizeLabel(r.size))}</h3><svg class="sideview" viewBox="0 0 ${W} ${H}" width="100%"><line x1="40" y1="${Y(0)}" x2="${W - 20}" y2="${Y(0)}" stroke="#aab4c3" stroke-dasharray="4 4"/><text x="4" y="${Y(0) + 4}" style="font:11px system-ui" fill="#667">0 cm</text>`
+      + `<polyline points="${pts.map((p) => f1(X(p[0])) + ',' + f1(Y(p[1]))).join(' ')}" fill="none" stroke="#1f6feb" stroke-width="5" stroke-linejoin="round"/>`
+      + `<circle cx="${X(0)}" cy="${Y(pts[0][1])}" r="6" fill="#fff" stroke="#1f6feb" stroke-width="3"/><text x="${X(0)}" y="${Y(pts[0][1]) - 10}" text-anchor="middle" style="font:700 11px system-ui">1 · ${pts[0][1]} cm</text>`
+      + marks.map(([mx, mh, i, c]) => `<circle cx="${f1(X(mx))}" cy="${f1(Y(mh))}" r="6" fill="${c ? '#f08c00' : '#fff'}" stroke="#1f6feb" stroke-width="3"/><text x="${f1(X(mx))}" y="${f1(Y(mh) - 10)}" text-anchor="middle" style="font:700 11px system-ui">${i + 1} · ${mh} cm</text>`).join('')
+      + `<text x="${W - 20}" y="${H - 8}" text-anchor="end" style="font:11px system-ui" fill="#667">${LL('abgewickelte Länge', 'developed length')} ${Math.round(x)} cm</text></svg>`;
+  }).join('') + `<p class="lib-tip">${LL('Seitenansicht: Leitung „abgewickelt“ von links (Start) nach rechts (Ende). Höhensprünge = Steigleitungen mit 2 Winkeln, die automatisch in der Teileliste stehen.', 'Side view: route unrolled from start (left) to end (right). Height steps = risers with 2 elbows, added to the parts list automatically.')}</p>`;
+}
+function showSideView() { openModal(LL('Seitenansicht (Höhen)', 'Side view (heights)'), sideViewSVG()); }
+
+/* ---------- Einkaufsliste ---------- */
+function shopRows() { const bars = localStorage.getItem('rp_bars') !== '0'; return partsRows().map((r) => ({ r, q: qtyOf(r, bars) })).filter((x) => shopQuery(x.r.def) != null); }
+function shopText() { return shopRows().map(({ r, q }) => `${q.q} ${q.u} ${nm(r.def)}${q.extra ? ' (' + q.extra + ')' : ''}\n  ${hd24Link(r.def)}`).join('\n') + '\n\n' + LL('* Partnerlinks (Anzeige) – Größe/Ausführung vor dem Kauf prüfen.', '* Affiliate links (ad) – check size/type before buying.'); }
+function showShop() {
+  const rows = shopRows();
+  openModal(LL('🛒 Einkaufsliste HeizungsDiscount24', '🛒 Shopping list HeizungsDiscount24'), !rows.length ? `<p>${t('emptyList')}</p>` :
+    `<div class="row-actions"><button id="sAll" class="primary">↗ ${LL('Alle Links öffnen', 'Open all links')} (${rows.length})</button><button id="sCopy">📋 ${LL('Liste kopieren', 'Copy list')}</button><button id="sFile">⬇ ${LL('Als Datei', 'As file')}</button></div>
+    <table class="plist shop"><tbody>${rows.map(({ r, q }, i) => `<tr><td class="q">${q.q}</td><td>${q.u}</td><td><b>${esc(nm(r.def))}</b>${q.extra ? ` <span style="color:#1f6feb;font-weight:600">${q.extra}</span>` : ''}</td><td><a class="aff-btn" data-shop="${i}" href="${esc(hd24Link(r.def))}" target="_blank" rel="sponsored noopener">${LL('zum Shop', 'to shop')}*</a></td></tr>`).join('')}</tbody></table>
+    <p class="aff aff-foot">* ${LL('Partnerlink (Anzeige): Kaufst du darüber, bekomme ich eine kleine Provision, für dich ändert sich der Preis nicht. Die Links führen zur Shop-Suche, bitte Größe und Ausführung vor dem Kauf prüfen. Der Browser blockiert evtl. viele Fenster auf einmal – dann bitte Pop-ups erlauben oder einzeln klicken.', 'Affiliate link (ad): if you buy through it, I receive a small commission at no extra cost to you. Links open the shop search; please check size and type. Your browser may block many windows at once – allow pop-ups or click individually.')} <a href="#partnerlinks" data-legal="partnerlinks">${LL('Mehr zu Partnerlinks', 'More about affiliate links')}</a></p>`);
+  if (!rows.length) return;
+  $('sAll').onclick = () => { let blocked = 0; rows.forEach(({ r }) => { const w = window.open(hd24Link(r.def), '_blank', 'noopener'); if (!w) blocked++; }); if (blocked) toast(LL('Pop-ups blockiert – bitte erlauben oder einzeln öffnen', 'Pop-ups blocked – allow them or open individually'), 'warn', 5000); };
+  $('sCopy').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(shopText()).then(() => toast(LL('Liste kopiert', 'List copied'), 'ok', 1800), () => toast(LL('Kopieren nicht möglich', 'Copy failed'), 'bad')); };
+  $('sFile').onclick = () => download(fileBase() + '_Einkaufsliste.html', `<!doctype html><meta charset="utf-8"><title>${esc(proj.name)} – ${LL('Einkaufsliste', 'Shopping list')}</title><h1>${esc(proj.name)}</h1><ul>${rows.map(({ r, q }) => `<li>${q.q} ${q.u} <a href="${esc(hd24Link(r.def))}" rel="sponsored">${esc(nm(r.def))}</a> ${q.extra || ''}</li>`).join('')}</ul><p>* ${LL('Partnerlinks (Anzeige) – Rohrplaner by Pixel Scallywag', 'Affiliate links (ad) – Rohrplaner by Pixel Scallywag')}</p>`, 'text/html;charset=utf-8');
+}
+$('selCont').onclick = () => { const o = byId(sel); if (!o) return; const fr = A.free.filter((p) => p.obj === o), p = fr.find((x) => x.idx === activePort) || fr[0]; if (!p) return; startRouteMode(); startFromPort(p); };
+$('btnRoute').onclick = () => (RU.on ? stopRouteMode() : startRouteMode());
+
 // Test-/Debug-Schnittstelle
 window.RP = { get proj() { return proj; }, get sel() { return sel; }, analyze: () => A, tapAdd, select: (id) => { sel = id; activePort = null; render(); updateUI(); },
-  fitView, csvText, shopQuery, hd24Url, hd24Link, computeHints, openLegal, loadProject, exampleProject, rotateSel, DEF, get view() { return view; } };
+  fitView, csvText, startFromPort, RU, routeTap, startRouteMode, stopRouteMode, showSideView, showShop, partsRows, regenAll, shopQuery, hd24Url, hd24Link, computeHints, openLegal, loadProject, exampleProject, rotateSel, DEF, get view() { return view; } };
 boot();
 })();

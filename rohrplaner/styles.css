@@ -157,6 +157,18 @@ h3{margin:16px 0 8px;font-size:16px}
 }
 @media (max-width:420px){ .brand{display:none} .projname{min-width:0;flex:1 1 40px} #medium{max-width:88px} .tb-btn,#btnUndo,#btnRedo{width:34px;min-width:34px} #btnLang,#btnInfo{display:none} .tb-group{gap:4px} }
 
+
+#routePanel{position:absolute;top:8px;left:8px;right:8px;z-index:4;background:#fff;border:1px solid #c9d2de;border-radius:12px;box-shadow:0 4px 14px #0002;padding:6px 10px;font-size:13px;max-height:46%;overflow:auto}
+#routePanel .rp-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:3px 0}
+#routePanel select{max-width:250px}#routePanel input[type=number]{width:64px}
+#routePanel .rp-node{background:#eef4ff;border-radius:8px;padding:4px 6px}
+#routePanel.min .rp-row:not(:first-child):not(:last-child){display:none}
+#routePanel .rp-plus{display:inline-block;width:18px;height:18px;border-radius:50%;background:#1a9e4b;color:#fff;text-align:center;line-height:18px;font-weight:800}
+#routePanel .rp-tip{color:#1f4fa8;font-weight:600}
+#topbar .draw-btn.on{background:#123a7a;color:#fff}
+svg.sideview{background:#f7f9fc;border:1px solid #dde3ea;border-radius:8px}
+table.shop td{padding:4px 6px}
+@media (max-width:760px){#routePanel{top:4px;left:4px;right:4px;font-size:12px;max-height:52%} #routePanel select{max-width:170px} #routePanel label{display:flex;gap:4px;align-items:center}}
 @media print{
   .aff{display:none!important}
   body{background:#fff}

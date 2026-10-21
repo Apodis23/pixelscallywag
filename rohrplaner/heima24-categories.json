@@ -1,0 +1,135 @@
+{
+ "_info": {
+  "de": "Zuordnung Rohrplaner-Teile → Heima24-Kategorien/Suchseiten. Noch KEINE Affiliate-Links. Nach Freigabe durch Heima24 (AWIN, Programm-ID 75212, Publisher 3127037) werden diese URLs in AWIN-Deeplinks umgewandelt.",
+  "searchUrlPattern": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg={Suchbegriff} (Suchbegriff Latin-1-kodiert, z. B. ü = %FC)",
+  "matching": "partPrefixes werden zuerst geprüft (längster Präfix gewinnt), sonst categories[part.cat].",
+  "checked": "2026-10-18"
+ },
+ "categories": {
+  "pipe": {
+   "url": "https://www.heima24.de/rohrsysteme/",
+   "name": "Rohrsysteme"
+  },
+  "mvpress": {
+   "url": "https://www.heima24.de/rohrsysteme/alu-verbundrohr-fittings/pressfittings/",
+   "name": "Alu-Verbundrohr Pressfittings"
+  },
+  "mvschraub": {
+   "url": "https://www.heima24.de/rohrsysteme/alu-verbundrohr-fittings/schraubfittings/",
+   "name": "Alu-Verbundrohr Schraubfittings"
+  },
+  "mvsteck": {
+   "url": "https://www.heima24.de/rohrsysteme/alu-verbundrohr-fittings/steckfittings/",
+   "name": "Alu-Verbundrohr Steckfittings"
+  },
+  "cupress": {
+   "url": "https://www.heima24.de/rohrsysteme/kupferrohr-fittings/pressfittings/",
+   "name": "Kupferrohr Pressfittings"
+  },
+  "cuklemm": {
+   "url": "https://www.heima24.de/rohrsysteme/kupferrohr-fittings/klemmverschraubungen/",
+   "name": "Kupfer Klemmverschraubungen"
+  },
+  "culoet": {
+   "url": "https://www.heima24.de/rohrsysteme/kupferrohr-fittings/loetfittings/",
+   "name": "Kupfer Lötfittings"
+  },
+  "espress": {
+   "url": "https://www.heima24.de/rohrsysteme/edelstahlrohr-fittings/pressfittings/",
+   "name": "Edelstahl Pressfittings"
+  },
+  "msgew": {
+   "url": "https://www.heima24.de/rohrsysteme/gewindefittings/messing-gewindefittings/",
+   "name": "Messing-Gewindefittings"
+  },
+  "tg": {
+   "url": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Temperguss",
+   "name": "Suche: Temperguss (keine eigene Kategorie gefunden)"
+  },
+  "valve": {
+   "url": "https://www.heima24.de/installation/kugelhaehne/",
+   "name": "Kugelhähne"
+  },
+  "twarm": {
+   "url": "https://www.heima24.de/installation/",
+   "name": "Installation"
+  },
+  "hzarm": {
+   "url": "https://www.heima24.de/heizung/zubehoer/",
+   "name": "Heizungszubehör"
+  },
+  "safety": {
+   "url": "https://www.heima24.de/installation/sicherheitsventile/",
+   "name": "Sicherheitsventile"
+  },
+  "mess": {
+   "url": "https://www.heima24.de/installation/manometer/",
+   "name": "Manometer"
+  },
+  "hose": {
+   "url": "https://www.heima24.de/installation/panzerschlaeuche/",
+   "name": "Panzerschläuche"
+  }
+ },
+ "partPrefixes": {
+  "rohr-mv": "https://www.heima24.de/rohrsysteme/alu-verbundrohr-fittings/alu-verbundrohr-fuer-heizung-und-trinkwasser/",
+  "rohr-cu": "https://www.heima24.de/rohrsysteme/kupferrohr-fittings/kupferrohr-in-stangen/",
+  "rohr-es": "https://www.heima24.de/rohrsysteme/edelstahlrohr-fittings/edelstahlrohr/",
+  "rohr-st": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Stahlrohr",
+  "kh-": "https://www.heima24.de/installation/kugelhaehne/kugelhaehne-fuer-heizung-und-trinkwasser/",
+  "khrv-": "https://www.heima24.de/installation/kugelhaehne/kugelhaehne-fuer-heizung-und-trinkwasser/",
+  "rv-": "https://www.heima24.de/installation/rueckschlagventile/",
+  "srv-": "https://www.heima24.de/installation/rueckschlagventile/fuer-trinkwasser/",
+  "ssv-": "https://www.heima24.de/installation/schraegsitzventile/",
+  "alh-": "https://www.heima24.de/installation/auslaufventile/",
+  "kfe-": "https://www.heima24.de/installation/kugelhaehne/kfe-kugelhaehne-fuer-fuellen-und-entleeren/",
+  "wmv-": "https://www.heima24.de/installation/geraeteventile/",
+  "eckv-": "https://www.heima24.de/installation/eckventile/eckventile/",
+  "keckv-": "https://www.heima24.de/installation/eckventile/kombi-eckventile/",
+  "ws-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Wandscheibe",
+  "sg-": "https://www.heima24.de/heizung/zubehoer/sicherheitsgruppen/",
+  "sv-hz-": "https://www.heima24.de/installation/sicherheitsventile/fuer-heizungsanlagen/",
+  "sv-tw-": "https://www.heima24.de/installation/sicherheitsventile/fuer-warmwasserbereiter/",
+  "ksg-": "https://www.heima24.de/installation/sicherheitsventile/fuer-heizungsanlagen/",
+  "mano-": "https://www.heima24.de/installation/manometer/",
+  "thermo-": "https://www.heima24.de/installation/thermometer/",
+  "mdb-": "https://www.heima24.de/installation/ausdehnungsgefaesse/fuer-trinkwasser/",
+  "mag-": "https://www.heima24.de/installation/ausdehnungsgefaesse/fuer-heizung/",
+  "kv-": "https://www.heima24.de/installation/kappenventile/",
+  "fj-": "https://www.heima24.de/installation/ausdehnungsgefaesse/zubehoer/",
+  "ps-": "https://www.heima24.de/installation/panzerschlaeuche/panzerschlaeuche-fuer-trinkwasser/",
+  "dm-": "https://www.heima24.de/installation/druckminderer/",
+  "dmk-": "https://www.heima24.de/installation/druckminderer/",
+  "hws-": "https://www.heima24.de/installation/wasserfilter/fuer-brauchwasser/",
+  "rsf-": "https://www.heima24.de/installation/wasserfilter/fuer-brauchwasser/",
+  "ffil-": "https://www.heima24.de/installation/wasserfilter/fuer-brauchwasser/",
+  "ba-": "https://www.heima24.de/installation/befuellen-entleeren/",
+  "rb-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Rohrbel%FCfter",
+  "tmix-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=thermostatischer+Mischer",
+  "wz-": "https://www.heima24.de/installation/wasserzaehler/aufputz-wasserzaehler/",
+  "wzb-": "https://www.heima24.de/installation/wasserzaehler/wasserzaehler-anschlussbuegel/",
+  "wzv-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Wasserz%E4hler+Verschraubung",
+  "leak-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Leckageschutz",
+  "wsd-": null,
+  "vt-": "https://www.heima24.de/installation/verteiler/sanitaer-verteiler/",
+  "zp-": "https://www.heima24.de/installation/umwaelzpumpen/trinkwasser-zirkulationspumpen/",
+  "pump-": "https://www.heima24.de/installation/umwaelzpumpen/umwaelzpumpen-fuer-heizungen/",
+  "mix3-": "https://www.heima24.de/heizung/zubehoer/heizungs-mischventile/3-wege-mischer-mit-innengewinde/",
+  "sla-": "https://www.heima24.de/installation/wasserfilter/fuer-heizung/",
+  "sf-": "https://www.heima24.de/rohrsysteme/gewindefittings/messing-gewindefittings/schmutzfaenger/",
+  "dfb-": "https://www.heima24.de/heizung/zubehoer/durchflussbegrenzer/",
+  "strv-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Regulierventil",
+  "usv-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=%DCberstr%F6mventil",
+  "tv-": "https://www.heima24.de/heizkoerper/zubehoer/fuer-ventilheizkoerper/",
+  "rlv-": "https://www.heima24.de/heizkoerper/zubehoer/fuer-ventilheizkoerper/",
+  "hblk-": "https://www.heima24.de/heizkoerper/zubehoer/fuer-ventilheizkoerper/",
+  "sent-": "https://www.heima24.de/heizung/zubehoer/entlueften/",
+  "ment-": "https://www.heima24.de/heizung/zubehoer/entlueften/",
+  "ms-": "https://www.heima24.de/rohrsysteme/gewindefittings/messing-gewindefittings/",
+  "tg-": "https://www.heima24.de/shop/system/?func=searchcheck&short=1&sbeg=Temperguss"
+ },
+ "notFoundAtHeima24": {
+  "wsd-": "Wasserschlagdämpfer – keine Treffer bei Heima24 (Stand 18.10.2026); später anderer Shop oder ohne Link",
+  "strv-": "Strangregulierventil – keine direkte Kategorie, Suche „Regulierventil“ (5 Treffer) prüfen"
+ }
+}

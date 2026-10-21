@@ -25,6 +25,7 @@
     <button id="btnRedo" class="icon" data-i18n-title="redo" title="Wiederholen">↷</button>
   </div>
   <div class="tb-group">
+    <button id="btnRoute" class="tb-btn draw-btn" title="Leitung zeichnen – Fittinge automatisch"><span class="ico">✏️</span><span class="lbl">Zeichnen</span></button>
     <button id="btnHints" class="tb-btn"><span class="ico">⚠</span><span class="lbl" data-i18n="hints">Hinweise</span><span id="hintBadge" class="badge" hidden>0</span></button>
     <button id="btnList" class="tb-btn primary"><span class="ico">☰</span><span class="lbl" data-i18n="partsList">Teileliste</span></button>
     <button id="btnMenu" class="tb-btn"><span class="ico">📁</span><span class="lbl" data-i18n="projects">Projekte</span></button>
@@ -56,6 +57,7 @@
         <g id="overlay"></g>
       </g>
     </svg>
+    <div id="routePanel" hidden></div>
     <div id="drawBanner" hidden><span id="drawText"></span><button id="drawDone" data-i18n="done">Fertig</button></div>
     <div id="emptyHint" hidden>
       <h2 data-i18n="emptyTitle">Los geht's!</h2>
@@ -78,6 +80,7 @@
         <button id="selRot" title="Drehen (R)">↻ <span class="lbl" data-i18n="rotate">Drehen</span></button>
         <button id="selFlip" title="Spiegeln (F)">⇋ <span class="lbl" data-i18n="flip">Spiegeln</span></button>
         <button id="selDup" title="Duplizieren (Strg+D)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6.5" y="6.5" width="10" height="10" rx="2"/><path d="M13 4.5V4a1.5 1.5 0 0 0-1.5-1.5h-7A1.5 1.5 0 0 0 3 4v7a1.5 1.5 0 0 0 1.5 1.5H5"/></svg> <span class="lbl" data-i18n="duplicate">Kopie</span></button>
+        <button id="selCont" class="primary" title="Von hier weiterzeichnen">✏️ <span class="lbl">Von hier weiterzeichnen</span></button>
         <button id="selDel" class="danger" title="Löschen (Entf)">🗑 <span class="lbl" data-i18n="delete">Löschen</span></button>
       </div>
     </div>
